@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' http://localhost:8080 ws://localhost:8080 http://localhost:8000;
+                 connect-src 'self' http://localhost:8080 ws://localhost:8080 http://localhost:8000 https://api.open-meteo.com https://geocoding-api.open-meteo.com;
+                 img-src 'self' data:;
+                 media-src blob:;
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 font-src 'self' https://fonts.gstatic.com;" />
+  <title>JARVIS OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════
+       BACKGROUND LAYER (z-index 0)
+       SF 홀로그래픽 배경 — Windows 바탕화면을 완전히 대체
+  ══════════════════════════════════════════════════ -->
+  <div class="os-bg" id="osBg"></div>
+
+  <!-- ══════════════════════════════════════════════════
+       OS TOP BAR
+  ══════════════════════════════════════════════════ -->
+  <div class="os-topbar" id="osTopbar">
+    <div class="os-topbar-left">
+      <div class="window-controls">
+        <button class="ctrl-btn ctrl-close"    id="btnClose"    title="닫기"></button>
+        <button class="ctrl-btn ctrl-minimize" id="btnMinimize" title="최소화"></button>
+        <button class="ctrl-btn ctrl-pin"      id="btnPin"      title="항상 위"></button>
+      </div>
+      <span class="os-brand">◈ JARVIS OS</span>
+      <span class="os-mode-badge" id="osModeBadge">IDLE</span>
+      <span class="os-mode-badge perm-badge hidden" id="chatPermBadge">LIMITED</span>
+    </div>
+    <div class="os-topbar-center">
+      <span class="os-clock" id="hudTime">00:00:00</span>
+    </div>
+    <div class="os-topbar-right">
+      <span class="os-tick" id="hudUserLabel">SIR</span>
+      <span class="os-tick" id="hudAgent">LIFE COACH</span>
+      <span class="badge engine-badge" id="chatEngineBadge">LLAMA · LOCAL</span>
+      <span class="os-tick" id="hudPermBadge">READY</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       MAIN OS GRID
+  ══════════════════════════════════════════════════ -->
+  <div class="os-main" id="osMain">
+
+    <!-- ── 왼쪽 컬럼 ── -->
+    <div class="os-col os-left">
+
+      <!-- 날씨 패널 -->
+      <div class="os-panel" id="weatherPanel">
+        <div class="panel-header">
+          <span class="panel-title">◈ WEATHER</span>
+          <span class="panel-badge" id="weatherCity">서울</span>
+        </div>
+        <div class="panel-body" id="weatherBody">
+          <div class="weather-loading">날씨 로딩 중...</div>
+        </div>
+      </div>
+
+      <!-- 시스템 모니터 패널 (왼쪽 하단) -->
+      <div class="os-panel" id="sysmonPanel">
+        <div class="panel-header">
+          <span class="panel-title">◈ SYSTEM</span>
+          <span class="panel-badge" id="sysStatus">NORMAL</span>
+        </div>
+        <div class="panel-body" id="sysmonBody">
+          <div class="sys-row">
+            <span class="sys-label">CPU</span>
+            <div class="sys-bar-wrap"><div class="sys-bar" id="cpuBar"></div></div>
+            <span class="sys-val" id="cpuVal">--%</span>
+          </div>
+          <div class="sys-row">
+            <span class="sys-label">RAM</span>
+            <div class="sys-bar-wrap"><div class="sys-bar" id="ramBar"></div></div>
+            <span class="sys-val" id="ramVal">--%</span>
+          </div>
+          <div class="sys-row">
+            <span class="sys-label">GPU</span>
+            <div class="sys-bar-wrap"><div class="sys-bar" id="gpuBar"></div></div>
+            <span class="sys-val" id="gpuVal">N/A</span>
+          </div>
+          <div class="sys-row">
+            <span class="sys-label">DISK</span>
+            <div class="sys-bar-wrap"><div class="sys-bar" id="diskBar"></div></div>
+            <span class="sys-val" id="diskVal">--%</span>
+          </div>
+          <div class="sys-divider"></div>
+          <div class="sys-extra" id="sysExtra"></div>
+          <div class="sys-ws-row" id="sysWsRow"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── 중앙 컬럼 ── -->
+    <div class="os-col os-center">
+
+      <!-- 구체 존 -->
+      <div class="sphere-zone" id="sphereScene">
+        <div class="sphere-container">
+          <div class="hud-outer-ring"></div>
+          <div class="orbit orbit-1"><span class="electron"></span></div>
+          <div class="orbit orbit-2"><span class="electron"></span></div>
+          <div class="orbit orbit-3"><span class="electron"></span></div>
+          <div class="sphere-core" id="sphereCore">
+            <div class="core-glow"></div>
+            <div class="core-inner-ring"></div>
+          </div>
+        </div>
+        <div class="sphere-label" id="sphereLabel">JARVIS</div>
+        <div class="engine-label" id="engineLabel">LLAMA · LOCAL</div>
+        <div class="sphere-sub-row">
+          <div class="resource-hud" id="resourceHud">
+            <span class="res-item" id="resCpu">CPU --</span>
+            <span class="res-sep">·</span>
+            <span class="res-item" id="resRam">RAM --</span>
+          </div>
+          <div class="task-badge hidden" id="taskBadge"></div>
+        </div>
+
+        <!-- WORKING 화면 미리보기 -->
+        <div class="screen-preview hidden" id="screenPreview">
+          <div class="screen-preview-header">
+            <span class="screen-preview-title">◈ 실시간 화면</span>
+            <span class="screen-preview-fps" id="screenFps">-- fps</span>
+          </div>
+          <img class="screen-preview-img" id="screenImg" alt="" />
+        </div>
+      </div>
+
+      <!-- 채팅 존 (항상 표시) -->
+      <div class="chat-zone" id="chatZone">
+        <div class="chat-zone-inner">
+          <div class="chat-meta-row">
+            <div class="chat-sphere-mini" id="chatSphereMini"></div>
+            <span class="badge agent-badge" id="chatAgentBadge">LIFE COACH</span>
+            <button class="tts-mute-btn" id="ttsMuteBtn" title="음성 켜기/끄기">🔊</button>
+            <button class="chat-close-btn" id="chatCloseBtn" title="채팅 초기화">↺</button>
+          </div>
+
+          <div class="messages" id="messages">
+            <div class="chat-placeholder" id="chatPlaceholder">
+              <span>자비스에게 말을 걸거나 구체를 클릭하세요</span>
+            </div>
+          </div>
+
+          <!-- 슬래시 명령어 자동완성 -->
+          <div class="slash-menu hidden" id="slashMenu"></div>
+
+          <div class="chat-input-row">
+            <input type="text"
+                   id="chatInput"
+                   class="chat-input"
+                   placeholder="메시지 입력... ( / 로 명령어 )"
+                   autocomplete="off" />
+            <button id="sendBtn" class="send-btn">▶</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── 오른쪽 컬럼 — 로그 전체 차지 ── -->
+    <div class="os-col os-right">
+
+      <!-- 로그 패널 (오른쪽 전체) -->
+      <div class="os-panel os-panel-log" id="logPanel">
+        <div class="panel-header log-header" id="logHeader">
+          <span class="panel-title log-title">◈ SYSTEM LOG</span>
+          <span class="log-count" id="logCount">0</span>
+          <button class="log-popout-btn" onclick="window.jarvis?.openLogWindow?.()" title="별도 창">⤢</button>
+          <button class="log-toggle-btn" id="logToggleBtn" title="접기">−</button>
+        </div>
+        <div class="panel-body log-body" id="logBody"></div>
+      </div>
+
+    </div>
+  </div><!-- /os-main -->
+
+  <!-- ══════════════════════════════════════════════════
+       PERMISSION 모달
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="permModal">
+    <div class="modal-box perm-box">
+      <div class="modal-logo">⬡</div>
+      <h1 class="modal-title">JARVIS 권한 동의</h1>
+      <p class="modal-subtitle">자비스를 처음 실행합니다 — 접근 권한을 선택해 주세요</p>
+      <div class="modal-divider"></div>
+      <div class="perm-options">
+        <label class="perm-option" id="permFull">
+          <input type="radio" name="permMode" value="FULL" checked />
+          <div class="perm-option-inner">
+            <div class="perm-option-header">
+              <span class="perm-icon">⬡</span>
+              <span class="perm-title">풀 액세스 모드 <span class="perm-rec">(권장)</span></span>
+            </div>
+            <ul class="perm-list">
+              <li>✦ PC 자율 제어 (마우스·키보드 자동화)</li>
+              <li>✦ 음성·비전 센서 접근 (마이크, 웹캠)</li>
+              <li>✦ 파일 시스템 읽기·쓰기</li>
+              <li>✦ 화면 캡처 및 분석</li>
+              <li>✦ 모든 자비스 기능 사용 가능</li>
+            </ul>
+          </div>
+        </label>
+        <label class="perm-option" id="permLimited">
+          <input type="radio" name="permMode" value="LIMITED" />
+          <div class="perm-option-inner">
+            <div class="perm-option-header">
+              <span class="perm-icon perm-icon-dim">◈</span>
+              <span class="perm-title perm-title-dim">기능 제한 모드</span>
+            </div>
+            <ul class="perm-list perm-list-dim">
+              <li>◇ 대화 및 상담 기능만 사용</li>
+              <li>✕ PC 자동 제어 비활성화</li>
+              <li>✕ 음성·비전 센서 비활성화</li>
+              <li>✕ 화면 캡처 비활성화</li>
+            </ul>
+          </div>
+        </label>
+      </div>
+      <div class="modal-divider"></div>
+      <div class="field-group">
+        <label class="field-label">호칭 설정 (선택)</label>
+        <input type="text" id="inputUserName" class="modal-input"
+               placeholder="예: 홍길동  (비워두면 Sir로 호칭됩니다)" maxlength="20" />
+        <span class="field-hint">자비스가 대화 시 사용자를 부르는 이름</span>
+      </div>
+      <p class="perm-notice">이 설정은 이후 자비스 설정 메뉴에서 언제든지 변경할 수 있습니다.</p>
+      <button id="permSubmitBtn" class="setup-btn">
+        <span id="permSubmitText">⬡ &nbsp;동의하고 시작</span>
+        <span id="permSubmitSpinner" class="spinner hidden"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       NGROK 설정 모달
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="ngrokModal">
+    <div class="modal-box">
+      <div class="modal-logo">⬡</div>
+      <h1 class="modal-title">JARVIS 모바일 연동</h1>
+      <p class="modal-subtitle">최초 설정 — 외부 보안 터널을 구성합니다</p>
+      <div class="modal-divider"></div>
+      <div class="field-group">
+        <label class="field-label">NGROK AUTH TOKEN</label>
+        <input type="text" id="inputAuthToken" class="modal-input"
+               placeholder="2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_xxxx" />
+        <span class="field-hint">ngrok 대시보드 → Your Authtoken</span>
+      </div>
+      <div class="field-group">
+        <label class="field-label">고정 도메인 주소</label>
+        <input type="text" id="inputDomain" class="modal-input"
+               placeholder="your-domain.ngrok-free.app" />
+        <span class="field-hint">ngrok 대시보드 → Domains</span>
+      </div>
+      <div class="modal-error hidden" id="modalError"></div>
+      <button id="setupBtn" class="setup-btn">
+        <span id="setupBtnText">⬡ &nbsp;설정 완료 및 터널 시작</span>
+        <span id="setupBtnSpinner" class="spinner hidden"></span>
+      </button>
+      <button id="skipNgrokBtn" class="setup-btn setup-btn-secondary">
+        나중에 설정하기
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       DANGER 확인 모달
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="dangerModal">
+    <div class="modal-box danger-box">
+      <div class="danger-icon">⚠</div>
+      <h1 class="modal-title danger-title">위험 작업 감지</h1>
+      <p class="modal-subtitle" id="dangerReason">위험 사유 표시 영역</p>
+      <div class="modal-divider danger-divider"></div>
+      <div class="danger-thought-wrap">
+        <span class="danger-thought-label">자비스 계획</span>
+        <p class="danger-thought" id="dangerThought"></p>
+      </div>
+      <p class="danger-warning-text">
+        위 작업은 시스템에 영구적인 영향을 줄 수 있습니다.<br/>정말 실행하시겠습니까?
+      </p>
+      <div class="danger-btn-row">
+        <button class="danger-cancel-btn"  id="dangerCancelBtn">취소</button>
+        <button class="danger-confirm-btn" id="dangerConfirmBtn">실행 허가</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

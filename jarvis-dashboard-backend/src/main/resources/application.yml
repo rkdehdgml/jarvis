@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: jarvis-dashboard-backend
+
+  # ── H2 Embedded DB (file-based, persists between restarts) ──
+  datasource:
+    url: jdbc:h2:file:${JARVIS_DATA_DIR:./data}/jarvis;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: jarvis
+    password: jarvis
+
+  h2:
+    console:
+      enabled: true          # http://localhost:8080/h2-console
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: update       # auto-creates / migrates tables
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+
+  # ── Static frontend resources ────────────────────────────────
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+# ── Server ────────────────────────────────────────────────────
+server:
+  port: 8080
+
+# ── JARVIS custom properties ──────────────────────────────────
+jarvis:
+  core-ai-url: http://localhost:8000   # FastAPI base URL
+
+# ── Actuator ──────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics

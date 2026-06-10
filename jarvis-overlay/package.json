@@ -1,0 +1,87 @@
+{
+  "name": "jarvis-overlay",
+  "version": "0.1.0",
+  "description": "JARVIS Personal AI Assistant — Desktop HUD Overlay",
+  "main": "main.js",
+  "author": "JARVIS Project",
+  "license": "MIT",
+  "scripts": {
+    "start":      "electron .",
+    "build":      "electron-builder --win nsis",
+    "build:py":      "python -m PyInstaller --onefile --name jarvis-wake --collect-all sounddevice --distpath ../jarvis-python-dist ../jarvis-core-ai/app/sensors/wake_sensor.py",
+    "build:py-core": "python -m PyInstaller --onefile --name jarvis-core --collect-all sounddevice --collect-all anthropic --collect-all openai --collect-all ollama --collect-all fastapi --collect-all uvicorn --add-data \"../jarvis-core-ai/prompts;prompts\" --distpath ../jarvis-python-dist ../jarvis-core-ai/app/main_standalone.py",
+    "build:java":    "cd ../jarvis-dashboard-backend && mvn clean package -DskipTests",
+    "build:jre":     "jlink --no-header-files --no-man-pages --compress=2 --strip-debug --add-modules java.base,java.compiler,java.desktop,java.instrument,java.management,java.management.rmi,java.naming,java.net.http,java.prefs,java.rmi,java.scripting,java.security.jgss,java.security.sasl,java.sql,java.xml,jdk.crypto.cryptoki,jdk.crypto.ec,jdk.httpserver,jdk.jfr,jdk.management,jdk.naming.dns,jdk.naming.rmi,jdk.net,jdk.security.auth,jdk.unsupported --output ../jarvis-jre",
+    "build:all":     "npm run build:java && npm run build:jre && npm run build:py && npm run build:py-core && npm run build"
+  },
+  "devDependencies": {
+    "electron":         "^31.6.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId":       "com.jarvis.assistant",
+    "productName": "JARVIS",
+    "copyright":   "JARVIS Personal AI Assistant",
+
+    "directories": {
+      "output":          "dist",
+      "buildResources":  "build"
+    },
+
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "node_modules/**/*",
+      "!node_modules/*/{CHANGELOG.md,README.md,readme.md}",
+      "!node_modules/**/{test,tests,__tests__}/**"
+    ],
+
+    "extraResources": [
+      {
+        "from":   "../jarvis-dashboard-backend/target/jarvis-dashboard-backend-0.1.0.jar",
+        "to":     "jarvis-backend.jar"
+      },
+      {
+        "from":   "../jarvis-python-dist/",
+        "to":     "jarvis-python/",
+        "filter": ["**/*"]
+      },
+      {
+        "from":   "../jarvis-jre",
+        "to":     "jarvis-jre",
+        "filter": ["**/*"]
+      }
+    ],
+
+    "win": {
+      "target":                  "nsis",
+      "icon":                    "build/icon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName":            "JARVIS-Setup-${version}.exe"
+    },
+
+    "nsis": {
+      "oneClick":                         false,
+      "perMachine":                       false,
+      "allowToChangeInstallationDirectory": false,
+      "installerIcon":                    "build/icon.ico",
+      "uninstallerIcon":                  "build/icon.ico",
+      "installerHeaderIcon":              "build/icon.ico",
+      "createDesktopShortcut":            true,
+      "createStartMenuShortcut":          true,
+      "shortcutName":                     "JARVIS",
+      "runAfterFinish":                   true,
+      "deleteAppDataOnUninstall":         false,
+      "include":                          "build/installer.nsh",
+      "warningsAsErrors":                 false,
+
+      "installerLanguages": ["Korean", "English"],
+      "language":           "1042",
+
+      "license":            "build/LICENSE.txt"
+    },
+
+    "publish": null
+  }
+}

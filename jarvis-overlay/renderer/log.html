@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS — System Log</title>
+  <style>
+    :root {
+      --bg:    rgba(4, 10, 18, 0.92);
+      --border: rgba(0, 200, 255, 0.18);
+      --cyan:  #00d4ff;
+      --font:  'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: rgba(180, 220, 240, 0.85);
+      font-family: var(--font);
+      font-size: 11px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* 타이틀바 (드래그 영역) */
+    .titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(0, 20, 40, 0.9);
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
+      cursor: move;
+      flex-shrink: 0;
+    }
+
+    .title-text {
+      flex: 1;
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: var(--cyan);
+    }
+
+    .title-count {
+      font-size: 9px;
+      color: rgba(0, 200, 255, 0.4);
+      min-width: 28px;
+      text-align: right;
+    }
+
+    .btn {
+      -webkit-app-region: no-drag;
+      background: transparent;
+      border: 1px solid rgba(0, 200, 255, 0.25);
+      border-radius: 3px;
+      color: rgba(0, 200, 255, 0.55);
+      font-family: var(--font);
+      font-size: 9px;
+      padding: 1px 7px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.15s;
+    }
+    .btn:hover {
+      background: rgba(0, 200, 255, 0.1);
+      color: var(--cyan);
+      border-color: var(--cyan);
+    }
+    .btn.close-btn {
+      border-color: rgba(255, 80, 80, 0.3);
+      color: rgba(255, 100, 100, 0.55);
+    }
+    .btn.close-btn:hover {
+      background: rgba(255, 60, 60, 0.12);
+      color: #ff6060;
+      border-color: #ff6060;
+    }
+
+    /* 필터 바 */
+    .filterbar {
+      display: flex;
+      gap: 4px;
+      padding: 5px 10px;
+      background: rgba(0, 15, 30, 0.7);
+      border-bottom: 1px solid rgba(0, 200, 255, 0.08);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      -webkit-app-region: no-drag;
+      background: transparent;
+      border: 1px solid rgba(0, 200, 255, 0.15);
+      border-radius: 3px;
+      color: rgba(140, 180, 200, 0.5);
+      font-family: var(--font);
+      font-size: 8px;
+      padding: 1px 6px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: all 0.15s;
+    }
+    .filter-btn.active {
+      background: rgba(0, 200, 255, 0.12);
+      color: var(--cyan);
+      border-color: rgba(0, 200, 255, 0.4);
+    }
+    .filter-btn:hover { color: var(--cyan); }
+
+    /* 로그 바디 */
+    .log-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .log-body::-webkit-scrollbar { width: 4px; }
+    .log-body::-webkit-scrollbar-track { background: transparent; }
+    .log-body::-webkit-scrollbar-thumb { background: rgba(0, 200, 255, 0.2); border-radius: 2px; }
+
+    .log-entry {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+      padding: 1px 2px;
+      border-radius: 2px;
+      line-height: 1.5;
+    }
+    .log-entry:hover { background: rgba(0, 200, 255, 0.04); }
+
+    .log-time {
+      color: rgba(100, 140, 160, 0.5);
+      font-size: 9px;
+      flex-shrink: 0;
+      width: 60px;
+    }
+
+    .log-badge {
+      font-size: 8px;
+      padding: 0 4px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      width: 32px;
+      text-align: center;
+    }
+
+    .log-msg { flex: 1; word-break: break-all; }
+
+    /* 타입별 색상 */
+    .log-info  .log-badge { color: rgba(0,  200, 255, 0.7); border: 1px solid rgba(0,200,255,0.2); }
+    .log-info  .log-msg   { color: rgba(180, 220, 240, 0.8); }
+
+    .log-success .log-badge { color: rgba(0,  220, 120, 0.8); border: 1px solid rgba(0,200,100,0.2); }
+    .log-success .log-msg   { color: rgba(160, 240, 200, 0.85); }
+
+    .log-error .log-badge { color: rgba(255, 80,  80,  0.9); border: 1px solid rgba(255,60,60,0.3); }
+    .log-error .log-msg   { color: rgba(255, 160, 160, 0.85); }
+
+    .log-warn  .log-badge { color: rgba(255, 180, 40,  0.8); border: 1px solid rgba(255,160,30,0.2); }
+    .log-warn  .log-msg   { color: rgba(255, 220, 160, 0.8); }
+
+    .log-chat  .log-badge { color: rgba(180, 120, 255, 0.8); border: 1px solid rgba(160,100,255,0.2); }
+    .log-chat  .log-msg   { color: rgba(220, 190, 255, 0.8); }
+
+    .log-tts   .log-badge { color: rgba(255, 180, 100, 0.7); border: 1px solid rgba(255,160,80,0.2); }
+    .log-tts   .log-msg   { color: rgba(255, 220, 180, 0.75); }
+
+    .log-os    .log-badge { color: rgba(0,  200, 160, 0.7); border: 1px solid rgba(0,180,140,0.2); }
+    .log-os    .log-msg   { color: rgba(160, 240, 220, 0.8); }
+
+    .empty-msg {
+      margin: auto;
+      color: rgba(0, 200, 255, 0.2);
+      font-size: 10px;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="titlebar">
+    <span class="title-text">◈ JARVIS SYSTEM LOG</span>
+    <span class="title-count" id="count">0</span>
+    <button class="btn" onclick="clearLog()">CLR</button>
+    <button class="btn" onclick="toggleScroll()">AUTO</button>
+    <button class="btn close-btn" onclick="window.jarvis?.closeWindow?.() || window.close()">✕</button>
+  </div>
+
+  <div class="filterbar" id="filterbar">
+    <button class="filter-btn active" data-type="all"  onclick="setFilter('all')">ALL</button>
+    <button class="filter-btn"        data-type="info"    onclick="setFilter('info')">INFO</button>
+    <button class="filter-btn"        data-type="success" onclick="setFilter('success')">OK</button>
+    <button class="filter-btn"        data-type="error"   onclick="setFilter('error')">ERR</button>
+    <button class="filter-btn"        data-type="warn"    onclick="setFilter('warn')">WARN</button>
+    <button class="filter-btn"        data-type="chat"    onclick="setFilter('chat')">CHAT</button>
+    <button class="filter-btn"        data-type="os"      onclick="setFilter('os')">OS</button>
+  </div>
+
+  <div class="log-body" id="logBody">
+    <span class="empty-msg" id="emptyMsg">대기 중...</span>
+  </div>
+
+  <script>
+    const logBody   = document.getElementById('logBody')
+    const countEl   = document.getElementById('count')
+    const emptyMsg  = document.getElementById('emptyMsg')
+
+    let entries    = []
+    let filter     = 'all'
+    let autoScroll = true
+    let total      = 0
+
+    const BADGE = {
+      info: 'INFO', success: ' OK ', error: 'ERR ', warn: 'WARN',
+      chat: 'CHAT', tts: 'TTS ', os: ' OS ',
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    }
+
+    function renderEntry(e) {
+      const el = document.createElement('div')
+      el.className = `log-entry log-${e.type}`
+      el.dataset.type = e.type
+      el.innerHTML =
+        `<span class="log-time">${esc(e.time)}</span>` +
+        `<span class="log-badge">${BADGE[e.type] || 'INFO'}</span>` +
+        `<span class="log-msg">${esc(e.message)}</span>`
+      el.style.display = (filter === 'all' || filter === e.type) ? '' : 'none'
+      return el
+    }
+
+    function addEntry(e) {
+      entries.push(e)
+      if (entries.length > 500) entries.shift()
+      total++
+      countEl.textContent = total
+
+      if (emptyMsg.parentNode) emptyMsg.remove()
+
+      const el = renderEntry(e)
+      logBody.appendChild(el)
+
+      // 최대 500개 유지
+      while (logBody.children.length > 500) logBody.firstChild.remove()
+
+      if (autoScroll) logBody.scrollTop = logBody.scrollHeight
+    }
+
+    function setFilter(type) {
+      filter = type
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.type === type)
+      })
+      document.querySelectorAll('.log-entry').forEach(el => {
+        el.style.display = (type === 'all' || el.dataset.type === type) ? '' : 'none'
+      })
+      if (autoScroll) logBody.scrollTop = logBody.scrollHeight
+    }
+
+    function clearLog() {
+      logBody.innerHTML = ''
+      entries = []
+      total   = 0
+      countEl.textContent = 0
+      const em = document.createElement('span')
+      em.className = 'empty-msg'
+      em.id = 'emptyMsg'
+      em.textContent = '지워졌습니다.'
+      logBody.appendChild(em)
+    }
+
+    function toggleScroll() {
+      autoScroll = !autoScroll
+      const btn = document.querySelector('[onclick="toggleScroll()"]')
+      btn.style.color = autoScroll ? '' : 'rgba(255,180,40,0.8)'
+      btn.style.borderColor = autoScroll ? '' : 'rgba(255,160,30,0.5)'
+    }
+
+    // IPC 수신
+    window.jarvis?.onLogEntry?.(entry => addEntry(entry))
+
+    // 시작 메시지
+    addEntry({ time: new Date().toTimeString().slice(0,8), type: 'info', message: 'JARVIS 로그 창 열림' })
+  </script>
+</body>
+</html>

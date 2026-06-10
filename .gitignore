@@ -1,0 +1,9 @@
+# .gitignore 파일 내용
+.env
+node_modules/
+__pycache__/
+*.log
+jarvis-dashboard-backend/target/
+jarvis-overlay/dist/
+*.jar
+*.exe
