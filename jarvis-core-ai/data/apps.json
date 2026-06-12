@@ -1,0 +1,16 @@
+{
+  "메모장": "notepad.exe",
+  "계산기": "calc.exe",
+  "그림판": "mspaint.exe",
+  "크롬": "chrome.exe",
+  "구글 크롬": "chrome.exe",
+  "엣지": "msedge.exe",
+  "탐색기": "explorer.exe",
+  "워드": "winword.exe",
+  "엑셀": "excel.exe",
+  "파워포인트": "powerpnt.exe",
+  "작업관리자": "taskmgr.exe",
+  "캡처도구": "snippingtool.exe",
+  "vscode": "code.exe",
+  "vs code": "code.exe"
+}

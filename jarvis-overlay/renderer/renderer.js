@@ -214,7 +214,7 @@ function enterIdle() {
   stopScreenStream()
   $('screenPreview').classList.add('hidden')
   window.jarvis?.setIgnoreMouse?.(false)
-  exitOverlayBarMode()
+  exitMiniMode()
 }
 
 function enterListening() {
@@ -237,7 +237,7 @@ function enterWorking() {
   _setOsMode('WORKING', 'working')
   sphereLabel.textContent = 'WORKING'
   if (permissionMode !== 'LIMITED') startScreenStream()
-  enterOverlayBarMode()
+  enterMiniMode()
 }
 
 function exitChatting() {
@@ -245,24 +245,24 @@ function exitChatting() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 3-1. Dynamic Overlay Bar — WORKING 중 화면 최상단 슬림 바로 축소
+// 3-1. 미니 모드 — 자동 제어 중 우측 하단 80x80 창으로 축소
 // ══════════════════════════════════════════════════════════════════════════════
-function enterOverlayBarMode() {
-  document.body.classList.add('working-mode')
-  $('overlayBar').classList.remove('hidden')
-  setOverlayBarText('자비스가 작업을 준비하는 중...')
-  window.jarvis?.enterOverlayBar?.()
+function enterMiniMode() {
+  document.body.classList.add('mini-mode')
+  $('miniMode').classList.remove('hidden')
+  setMiniModeStatus('자비스가 작업을 준비하는 중...')
+  window.jarvis?.enterMiniMode?.()
 }
 
-function exitOverlayBarMode() {
-  document.body.classList.remove('working-mode')
-  $('overlayBar').classList.add('hidden')
-  window.jarvis?.exitOverlayBar?.()
+function exitMiniMode() {
+  document.body.classList.remove('mini-mode')
+  $('miniMode').classList.add('hidden')
+  window.jarvis?.exitMiniMode?.()
 }
 
-function setOverlayBarText(text) {
-  const el = $('overlayBarText')
-  if (el) el.textContent = `자비스 : ${text}`
+function setMiniModeStatus(text) {
+  const el = $('miniMode')
+  if (el) el.title = `자비스 : ${text}`
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -453,15 +453,15 @@ function handleWsEvent(event) {
           const action = JSON.parse(event.payload)
           if (action.event === 'plan') {
             appendLog(`OS 계획 수립: ${action.action_count}개 액션`, 'os')
-            setOverlayBarText(action.thought || 'OS 계획을 수립했습니다...')
+            setMiniModeStatus(action.thought || 'OS 계획을 수립했습니다...')
           } else if (action.event === 'danger') {
             appendLog(`⚠ 위험 작업 감지: ${action.risk_reason}`, 'warn')
-            exitOverlayBarMode()
+            exitMiniMode()
             showDangerConfirmDialog(action)
           } else if (action.event === 'start') {
             appendLog(action.log || `액션 #${action.index} 시작`, 'os')
             sphereLabel.textContent = action.log?.slice(0, 18) + '...' || 'WORKING'
-            setOverlayBarText(action.log || `액션 #${action.index} 진행 중...`)
+            setMiniModeStatus(action.log || `액션 #${action.index} 진행 중...`)
           } else if (action.event === 'done') {
             appendLog(`완료: ${action.log || `액션 #${action.index}`} (${action.duration_ms}ms)`, 'success')
           } else if (action.event === 'error') {
@@ -471,8 +471,7 @@ function handleWsEvent(event) {
               ? `OS 작업 중단: ${action.reason}`
               : `OS 작업 완료 — 성공 ${action.success}/${action.total}`
             appendLog(msg, action.aborted ? 'error' : 'success')
-            setOverlayBarText(msg)
-            setTimeout(enterIdle, 1200)
+            setMiniModeStatus(msg)
           }
         } catch { /* 무시 */ }
       }
@@ -643,20 +642,20 @@ async function runOsCommand(command, assistantEl) {
         switch (action.event) {
           case 'planning':
             assistantEl.textContent = `자비스 : ${action.message}`
-            setOverlayBarText(action.message)
+            setMiniModeStatus(action.message)
             break
 
           case 'plan':
             appendLog(`OS 계획 수립: ${action.action_count}개 액션 — ${action.thought}`, 'os')
             assistantEl.textContent = `자비스 : ${action.thought}`
-            setOverlayBarText(action.thought)
+            setMiniModeStatus(action.thought)
             break
 
           case 'danger':
             appendLog(`⚠ 위험 작업 감지: ${action.risk_reason}`, 'warn')
             assistantEl.textContent = `자비스 : ⚠ 위험한 작업이 감지되어 실행을 보류했습니다 — ${action.risk_reason}`
             assistantEl.classList.remove('streaming')
-            exitOverlayBarMode()
+            exitMiniMode()
             showDangerConfirmDialog(action)
             break
 
@@ -664,7 +663,7 @@ async function runOsCommand(command, assistantEl) {
             appendLog(action.log || `액션 #${action.index} 시작`, 'os')
             sphereLabel.textContent = (action.log || 'WORKING').slice(0, 18) + '...'
             assistantEl.textContent = `자비스 : ${action.log || `액션 #${action.index} 진행 중...`}`
-            setOverlayBarText(action.log || `액션 #${action.index} 진행 중...`)
+            setMiniModeStatus(action.log || `액션 #${action.index} 진행 중...`)
             break
 
           case 'done':
@@ -676,7 +675,7 @@ async function runOsCommand(command, assistantEl) {
               // 계획 생성 실패 등 최상위 오류
               appendLog(action.message, 'error')
               assistantEl.textContent = `자비스 : ${action.message}`
-              setOverlayBarText(action.message)
+              setMiniModeStatus(action.message)
             } else {
               appendLog(`오류: ${action.error || `액션 #${action.index} 실패`}`, 'error')
             }
@@ -688,7 +687,7 @@ async function runOsCommand(command, assistantEl) {
               : `작업 완료 (성공 ${action.success}/${action.total})`
             appendLog(msg, action.aborted ? 'error' : 'success')
             assistantEl.textContent = `자비스 : ${msg}`
-            setOverlayBarText(msg)
+            setMiniModeStatus(msg)
             break
           }
         }
@@ -696,11 +695,6 @@ async function runOsCommand(command, assistantEl) {
     }
 
     assistantEl.classList.remove('streaming')
-
-    // 위험 작업 확인 대기 중이 아니면 IDLE로 복귀
-    if (state === 'WORKING' && !_pendingDangerPlan) {
-      setTimeout(enterIdle, 1200)
-    }
 
   } catch (e) {
     appendLog(`PC 제어 오류: ${e.message}`, 'error')
@@ -957,7 +951,7 @@ async function confirmDangerExecution() {
   const plan = _pendingDangerPlan
   hideDangerModal()
   appendLog('위험 작업 사용자 승인 — 실행 시작', 'warn')
-  enterOverlayBarMode()
+  enterMiniMode()
 
   try {
     const res = await fetch(`${AI_URL}/api/os/execute`, {
@@ -1005,7 +999,7 @@ async function confirmDangerExecution() {
               ? `위험 작업 중단: ${ev.reason}`
               : `위험 작업 완료 — 성공 ${ev.success}/${ev.total}`
             appendLog(msg, ev.aborted ? 'error' : 'success')
-            setTimeout(enterIdle, 1200)
+            setMiniModeStatus(msg)
           }
         } catch { /* 무시 */ }
       }
@@ -1018,7 +1012,7 @@ async function confirmDangerExecution() {
 function cancelDangerExecution() {
   appendLog('위험 작업 사용자 취소', 'info')
   hideDangerModal()
-  exitOverlayBarMode()
+  exitMiniMode()
   setTimeout(enterIdle, 500)
 }
 
@@ -1758,16 +1752,10 @@ let _engineList = []
 let _engineListOffline = false
 
 // 백엔드(8000)에 연결되지 않을 때 모달이 비지 않도록 보여줄 기본 목록
-// (실제 키 저장/엔진 전환은 백엔드 연결 후에만 가능)
+// JARVIS는 CLAUDE_CODE 엔진으로 고정되어 있으므로(ALLOWED_ENGINES), 다른
+// 엔진은 목록에 포함하지 않는다.
 const FALLBACK_ENGINES = [
   { key: 'CLAUDE_CODE',       name: 'Claude Code (구독)',     provider: 'claude_code', is_active: true  },
-  { key: 'GEMINI_FLASH',      name: 'Gemini 2.5 Flash',       provider: 'gemini',    is_active: false },
-  { key: 'GEMINI_FLASH_LITE', name: 'Gemini 2.5 Flash-Lite',  provider: 'gemini',    is_active: false },
-  { key: 'GEMINI_PRO',        name: 'Gemini 2.5 Pro',         provider: 'gemini',    is_active: false },
-  { key: 'CLAUDE_SONNET',     name: 'Claude Sonnet 4.6',      provider: 'claude',    is_active: false },
-  { key: 'GPT4O',             name: 'GPT-4o',                 provider: 'openai',    is_active: false },
-  { key: 'GROQ_LLAMA_70B',    name: 'Llama 3.3 70B (Groq)',   provider: 'groq',      is_active: false },
-  { key: 'OLLAMA_DEEPSEEK',   name: 'DeepSeek-R1 (로컬)',      provider: 'ollama',    is_active: false },
 ]
 
 // JARVIS는 CLAUDE_CODE 엔진으로 고정되어 있다 (백엔드 ALLOWED_ENGINES).
@@ -1878,7 +1866,7 @@ function renderCCPanel() {
   // ── AI 엔진 연결 상태 카드 ──
   let statusBody
   if (!st || st.installed === null || st.installed === undefined) {
-    statusBody = `<p class="cc-status-line">상태를 불러오지 못했습니다. AI 코어 서버 연결을 확인해 주세요.</p>`
+    statusBody = `<p class="cc-status-line">연결 상태 확인 중...</p>`
   } else if (!st.installed) {
     statusBody = `
       <p class="cc-status-line cc-status-warn">Claude Code CLI가 설치되어 있지 않습니다.</p>
@@ -1902,7 +1890,8 @@ function renderCCPanel() {
   }
 
   // ── 오늘 사용량 게이지 ──
-  let usageHtml = `<p class="cc-status-line">사용량 정보를 불러올 수 없습니다.</p>`
+  // 사용량 정보를 불러오지 못한 경우, 오류 문구 대신 카드 자체를 표시하지 않는다.
+  let usageHtml = ''
   if (_ccUsage) {
     const limit = _ccUsage.daily_limit || 0
     const pct = limit ? Math.min(100, Math.round((_ccUsage.calls / limit) * 100)) : 0
@@ -1942,10 +1931,11 @@ function renderCCPanel() {
         ${modelSelectHtml}
       </div>
 
+      ${usageHtml ? `
       <div class="cc-usage-card">
         <div class="cc-status-title">오늘 사용량</div>
         ${usageHtml}
-      </div>
+      </div>` : ''}
 
       <div class="cc-advanced">
         <button type="button" class="cc-advanced-toggle" id="ccAdvancedToggle">
@@ -1990,13 +1980,9 @@ function renderSettingsModal() {
     _initialActiveEngine = activeEngine
   }
 
-  const offlineBanner = _engineListOffline ? `
-    <div class="settings-offline-banner">
-      ⚠ AI 코어 서버(localhost:8000)에 연결할 수 없어 기본 목록을 표시합니다.<br/>
-      서버를 실행한 뒤 <button type="button" id="settingsRetryBtn" class="settings-retry-btn">다시 시도</button>해 주세요.
-    </div>` : ''
-
-  list.innerHTML = offlineBanner + _engineList.map(model => {
+  // JARVIS는 CLAUDE_CODE 엔진으로 고정되어 있으므로, 백엔드 연결 실패 시에도
+  // 폴백 안내 배너 없이 Claude Code 단일 항목을 그대로 표시한다.
+  list.innerHTML = _engineList.map(model => {
     const isActive  = model.key === _pendingActiveEngine
     const isLocked  = model.key !== LOCKED_ENGINE_KEY
     const needsKey  = !SETTINGS_NO_KEY_PROVIDERS.includes(model.provider)
@@ -2045,14 +2031,6 @@ function renderSettingsModal() {
       _pendingActiveEngine = toggle.dataset.engine
       renderSettingsModal()
     })
-  })
-
-  // 오프라인 배너의 "다시 시도" 버튼 — 백엔드 재조회
-  $('settingsRetryBtn')?.addEventListener('click', async () => {
-    _pendingActiveEngine = null
-    _initialActiveEngine = null
-    await fetchEngineList()
-    renderSettingsModal()
   })
 
   // ── Claude Code 패널 이벤트 바인딩 ──
@@ -2231,6 +2209,9 @@ function findActiveApiKeyInput(provider) {
 // 창 제어 버튼
 $('btnClose').addEventListener('click',    () => window.jarvis?.closeWindow())
 $('btnMinimize').addEventListener('click', () => window.jarvis?.minimizeWindow())
+
+// 미니 모드 클릭 → 원래 크기/위치로 복원
+$('miniMode').addEventListener('click', () => enterIdle())
 
 // 신호등 초록 버튼 → AI 엔진 설정 모달
 $('btnPin').addEventListener('click', openSettingsModal)

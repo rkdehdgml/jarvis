@@ -270,31 +270,41 @@ function createWindow() {
   }
 }
 
-// ── Dynamic Overlay Bar — WORKING 모드 진입/복귀 ────────────────────────────
-// 화면 우상단의 슬림한 바 크기로 창을 축소하고 클릭을 통과시켜,
-// 자비스가 PC를 조작하는 동안 대상 화면(브라우저 등)을 100% 노출한다.
-const OVERLAY_BAR_WIDTH  = 380
-const OVERLAY_BAR_HEIGHT = 44
-const OVERLAY_BAR_MARGIN = 12
+// ── 미니 모드 — 자동 제어 시작 시 우측 하단 80x80 창으로 축소 ────────────────
+// 자비스가 PC를 조작하는 동안 대상 화면(브라우저 등)을 100% 노출하고,
+// 작은 미니 창만 항상 위에 떠 있는 상태로 유지한다. 사용자가 미니 창을
+// 클릭하면 원래 크기/위치로 복원한다.
+const MINI_MODE_SIZE   = 80
+const MINI_MODE_MARGIN = 16
 
-function enterOverlayBar() {
+function _applyMiniModeBounds() {
   if (!win) return
-  const { width: sw } = screen.getPrimaryDisplay().workAreaSize
-  win.setFullScreen(false)
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
   win.setBounds({
-    x:      sw - OVERLAY_BAR_WIDTH - OVERLAY_BAR_MARGIN,
-    y:      OVERLAY_BAR_MARGIN,
-    width:  OVERLAY_BAR_WIDTH,
-    height: OVERLAY_BAR_HEIGHT,
+    x:      sw - MINI_MODE_SIZE - MINI_MODE_MARGIN,
+    y:      sh - MINI_MODE_SIZE - MINI_MODE_MARGIN,
+    width:  MINI_MODE_SIZE,
+    height: MINI_MODE_SIZE,
   })
-  win.setAlwaysOnTop(true, 'screen-saver')
-  // 바 영역도 클릭 통과 — 대상 화면을 가리지 않고 상태만 표시
-  win.setIgnoreMouseEvents(true, { forward: true })
+  // 'floating' — 항상 위에 표시되지만 클릭은 그대로 받아 복원 버튼 역할을 한다.
+  win.setAlwaysOnTop(true, 'floating')
+  win.setIgnoreMouseEvents(false)
 }
 
-function exitOverlayBar() {
+function enterMiniMode() {
   if (!win) return
-  win.setIgnoreMouseEvents(false)
+  if (win.isFullScreen()) {
+    // Windows에서는 setFullScreen(false) 직후 setBounds가 전환 미완료로
+    // 무시되는 경우가 있어, 전환 완료 이벤트 이후에 크기를 적용한다.
+    win.once('leave-full-screen', _applyMiniModeBounds)
+    win.setFullScreen(false)
+  } else {
+    _applyMiniModeBounds()
+  }
+}
+
+function exitMiniMode() {
+  if (!win) return
   win.setAlwaysOnTop(false)
   win.setFullScreen(true)
 }
@@ -306,9 +316,9 @@ function exitOverlayBar() {
 // 창 상태 전환 — 전체화면 OS 모드에서는 크기 변경 없음
 ipcMain.on('set-window-state', () => { /* no-op: full-screen OS mode */ })
 
-// Dynamic Overlay Bar — WORKING 상태 진입/복귀
-ipcMain.on('enter-overlay-bar', () => enterOverlayBar())
-ipcMain.on('exit-overlay-bar',  () => exitOverlayBar())
+// 미니 모드 — 자동 제어 시작/종료(복원) 시 창 크기 전환
+ipcMain.on('enter-mini-mode', () => enterMiniMode())
+ipcMain.on('exit-mini-mode',  () => exitMiniMode())
 
 // 창 컨트롤
 ipcMain.on('close-window',    () => win?.close())

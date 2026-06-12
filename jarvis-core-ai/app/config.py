@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     telegram_allowed_ids: str = ""      # 허용된 Chat ID 목록 (쉼표 구분)
     telegram_poll_interval: int = 5     # polling 간격(초)
 
+    # 내장 명령 (app/commands) — 외부 API 키
+    # 뉴스: https://newsapi.org 에서 무료 발급
+    news_api_key: str = ""
+    # Gmail SMTP 전송: Google 계정 "앱 비밀번호" 필요 (일반 로그인 비밀번호 아님)
+    gmail_address: str = ""
+    gmail_app_password: str = ""
+
     # OS Agent — PC 제어 실행 환경
     # 화면 해상도(좌표 기반 자동화 안내용). 비워두면 pyautogui.size()로 자동 감지.
     os_screen_width: int = 0

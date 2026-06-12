@@ -107,6 +107,10 @@ class ClaudeCodeWrapper:
     def session_id(self) -> Optional[str]:
         return self._session_id
 
+    @session_id.setter
+    def session_id(self, value: Optional[str]) -> None:
+        self._session_id = value
+
     def reset_session(self) -> None:
         """새 대화 시작 — 다음 호출부터 --resume을 붙이지 않는다."""
         self._session_id = None

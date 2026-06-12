@@ -73,7 +73,14 @@
       "Bash(sed -n '345,400p' app/services/llm_manager.py)",
       "Bash(sed -n '460,530p' app/routers/chat.py)",
       "Bash(.venv/bin/python -c \"from app.main import app\")",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(grep -n \"addEventListener\\\\|\\\\$\\('sphere\\\\|DOMContentLoaded\\\\|^function init\\\\|init\\(\\)\" /mnt/c/Users/CEO/Desktop/jarvis/jarvis-overlay/renderer/renderer.js)",
+      "Bash(node --check main.js)",
+      "Bash(env)",
+      "Bash(python -m pytest -q)",
+      "Bash(.venv/bin/python -c \"import requests, wikipedia, pyjokes, pywhatkit\")",
+      "Bash(.venv/bin/python -c \"import fastapi; print\\('fastapi ok'\\)\")",
+      "Bash(.venv/bin/pip list *)"
     ]
   }
 }

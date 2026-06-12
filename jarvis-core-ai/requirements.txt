@@ -53,6 +53,11 @@ qrcode==8.0
 speedtest-cli==2.1.3
 pypdf==5.1.0
 
+# 내장 명령 (app/commands) — 위키피디아 검색, 프로그래밍 농담, WhatsApp 전송
+wikipedia==1.4.0
+pyjokes==0.8.3
+pywhatkit==5.4
+
 # HTTP client
 requests==2.32.3
 httpx==0.28.0

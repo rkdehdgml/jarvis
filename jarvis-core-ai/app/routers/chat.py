@@ -314,6 +314,29 @@ async def chat_stream(req: ChatRequest):
             },
         )
 
+    # ── 0-c. 내장 명령(Builtin Commands) 매칭 ──
+    # 키워드 매칭 성공 시 Claude Code를 거치지 않고 즉시 처리. 매칭 실패(None)면
+    # 기존 agent_router → Claude Code 흐름으로 그대로 폴백한다.
+    from app.commands import match_command
+    cmd_result = await match_command(req.message)
+    if cmd_result is not None:
+        async def cmd_generate():
+            yield cmd_result.text
+
+        return StreamingResponse(
+            cmd_generate(),
+            media_type="text/plain; charset=utf-8",
+            headers={
+                "X-Agent-Key":    "builtin",
+                "X-Agent-Name":   "Builtin Command",
+                "X-Engine-Key":   "builtin",
+                "X-Engine-Name":  "Builtin Command",
+                "X-Route-Method": "builtin",
+                "X-Confidence":   "1.0",
+                "X-Speak":        "true" if cmd_result.speak else "false",
+            },
+        )
+
     # ── 1. 에이전트 분류 + PromptSet 조립 ──
     prompt_set = await route(
         user_text = req.message,
@@ -485,9 +508,8 @@ async def get_engines():
 async def switch_engine(engine_key: str):
     """엔진을 즉시 전환. 이후 모든 요청에 적용.
 
-    사용 가능한 키: OLLAMA_DEEPSEEK, OLLAMA_LLAMA, OLLAMA_MISTRAL,
-                   CLAUDE_HAIKU, CLAUDE_SONNET, CLAUDE_OPUS,
-                   GPT4O_MINI, GPT4O
+    JARVIS는 CLAUDE_CODE 엔진으로 고정되어 있어(ALLOWED_ENGINES), 그 외
+    엔진 키는 모두 거부된다.
     """
     try:
         preset = manager.switch(engine_key.upper())

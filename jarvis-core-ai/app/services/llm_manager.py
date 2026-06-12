@@ -7,11 +7,8 @@ llm_manager.py — JARVIS LLM Engine Manager
   · PromptSet(agent_router 출력)을 선택된 엔진으로 전송 후 스트리밍 반환
   · 각 엔진별 토큰 수 · 지연시간 메타데이터 수집
 
-지원 엔진 프리셋:
-  [구독]      CLAUDE_CODE (기본 — Claude Code CLI, API 키 불필요)
-  [무료 로컬]  OLLAMA_DEEPSEEK | OLLAMA_LLAMA | OLLAMA_MISTRAL
-  [유료 API]  CLAUDE_HAIKU | CLAUDE_SONNET | CLAUDE_OPUS
-              GPT4O_MINI  | GPT4O
+지원 엔진 프리셋 (고정 — ALLOWED_ENGINES):
+  [구독]      CLAUDE_CODE (유일한 엔진 — Claude Code CLI, API 키 불필요)
 
 Public API:
   manager.switch(key)                → EnginePreset
@@ -53,9 +50,11 @@ class EnginePreset:
 
 
 # 프리셋 레지스트리 ─────────────────────────────────────────────────────────
+# JARVIS는 CLAUDE_CODE 엔진으로 고정되어 있으므로(ALLOWED_ENGINES 참고),
+# 다른 엔진 프리셋은 등록하지 않는다.
 ENGINE_REGISTRY: dict[str, EnginePreset] = {p.key: p for p in [
 
-    # ── 구독 (Claude Code CLI) — 기본 엔진 ──────────────────────────────────
+    # ── 구독 (Claude Code CLI) — 유일한 엔진 ────────────────────────────────
     EnginePreset(
         key         = "CLAUDE_CODE",
         name        = "Claude Code (구독)",
@@ -65,142 +64,6 @@ ENGINE_REGISTRY: dict[str, EnginePreset] = {p.key: p for p in [
         max_tokens  = 0,    # CLI가 관리 — 미사용
         description = "Claude Code 헤드리스 모드 — 구독 기반, API 키 불필요 — 기본 엔진",
         is_default  = True,
-    ),
-
-    # ── 무료 로컬 (Ollama) ──────────────────────────────────────────────────
-    EnginePreset(
-        key         = "OLLAMA_DEEPSEEK",
-        name        = "DeepSeek-R1 (로컬)",
-        provider    = "ollama",
-        model_id    = "deepseek-r1:8b",
-        tier        = "free",
-        max_tokens  = 8192,
-        description = "오프라인 추론 특화 모델 — 코딩·수학에 강함",
-    ),
-    EnginePreset(
-        key         = "OLLAMA_LLAMA",
-        name        = "Llama 3.2 (로컬)",
-        provider    = "ollama",
-        model_id    = "llama3.2",
-        tier        = "free",
-        max_tokens  = 4096,
-        description = "Meta 범용 오픈소스 모델 — 빠른 일상 대화",
-    ),
-    EnginePreset(
-        key         = "OLLAMA_QWEN",
-        name        = "Qwen2.5 7B (로컬)",
-        provider    = "ollama",
-        model_id    = "qwen2.5:7b",
-        tier        = "free",
-        max_tokens  = 4096,
-        description = "다국어/한국어 응답 품질이 우수한 모델",
-    ),
-    EnginePreset(
-        key         = "OLLAMA_MISTRAL",
-        name        = "Mistral 7B (로컬)",
-        provider    = "ollama",
-        model_id    = "mistral:7b",
-        tier        = "free",
-        max_tokens  = 4096,
-        description = "유럽산 경량 모델 — 영어 텍스트 품질 우수",
-    ),
-
-    # ── 유료 API (Claude / Anthropic) ───────────────────────────────────────
-    EnginePreset(
-        key         = "CLAUDE_HAIKU",
-        name        = "Claude Haiku 4.5",
-        provider    = "claude",
-        model_id    = "claude-haiku-4-5-20251001",
-        tier        = "paid",
-        max_tokens  = 8192,
-        description = "가장 빠른 Claude — 간단한 작업, 저비용",
-    ),
-    EnginePreset(
-        key         = "CLAUDE_SONNET",
-        name        = "Claude Sonnet 4.6",
-        provider    = "claude",
-        model_id    = "claude-sonnet-4-6",
-        tier        = "paid",
-        max_tokens  = 16384,
-        description = "균형잡힌 Claude — 복잡한 추론 + 적정 비용",
-    ),
-    EnginePreset(
-        key         = "CLAUDE_OPUS",
-        name        = "Claude Opus 4.7",
-        provider    = "claude",
-        model_id    = "claude-opus-4-7",
-        tier        = "paid",
-        max_tokens  = 32768,
-        description = "최고 성능 Claude — 고난도 분석·창작",
-    ),
-
-    # ── 유료 API (OpenAI) ────────────────────────────────────────────────────
-    EnginePreset(
-        key         = "GPT4O_MINI",
-        name        = "GPT-4o Mini",
-        provider    = "openai",
-        model_id    = "gpt-4o-mini",
-        tier        = "paid",
-        max_tokens  = 16384,
-        description = "경량 GPT-4o — 저비용 실시간 작업",
-    ),
-    EnginePreset(
-        key         = "GPT4O",
-        name        = "GPT-4o",
-        provider    = "openai",
-        model_id    = "gpt-4o",
-        tier        = "paid",
-        max_tokens  = 16384,
-        description = "OpenAI 플래그십 — 멀티모달·고성능",
-    ),
-
-    # ── 유료 API (Google Gemini) ─────────────────────────────────────────────
-    EnginePreset(
-        key         = "GEMINI_FLASH",
-        name        = "Gemini 2.5 Flash",
-        provider    = "gemini",
-        model_id    = "gemini-2.5-flash",
-        tier        = "paid",
-        max_tokens  = 8192,
-        description = "Google 경량 모델 — 빠른 응답, 저비용",
-    ),
-    EnginePreset(
-        key         = "GEMINI_FLASH_LITE",
-        name        = "Gemini 2.5 Flash-Lite",
-        provider    = "gemini",
-        model_id    = "gemini-2.5-flash-lite",
-        tier        = "paid",
-        max_tokens  = 8192,
-        description = "Google 초경량 모델 — 가장 빠르고 저렴",
-    ),
-    EnginePreset(
-        key         = "GEMINI_PRO",
-        name        = "Gemini 2.5 Pro",
-        provider    = "gemini",
-        model_id    = "gemini-2.5-pro",
-        tier        = "paid",
-        max_tokens  = 16384,
-        description = "Google 플래그십 — 고난도 추론·긴 컨텍스트",
-    ),
-
-    # ── 유료/무료 API (Groq) ──────────────────────────────────────────────────
-    EnginePreset(
-        key         = "GROQ_LLAMA_70B",
-        name        = "Llama 3.3 70B (Groq)",
-        provider    = "groq",
-        model_id    = "llama-3.3-70b-versatile",
-        tier        = "free",
-        max_tokens  = 8192,
-        description = "Groq LPU 초고속 추론 — 대형 모델, 무료 한도 제공",
-    ),
-    EnginePreset(
-        key         = "GROQ_LLAMA_8B",
-        name        = "Llama 3.1 8B Instant (Groq)",
-        provider    = "groq",
-        model_id    = "llama-3.1-8b-instant",
-        tier        = "free",
-        max_tokens  = 8192,
-        description = "Groq LPU 초고속 추론 — 경량 모델, 가장 빠른 응답",
     ),
 ]}
 

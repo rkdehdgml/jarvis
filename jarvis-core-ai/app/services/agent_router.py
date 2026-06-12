@@ -324,72 +324,26 @@ class _LlmClassifier:
         return None
 
     async def classify(self, user_text: str) -> Optional[RoutingResult]:
-        """LLM을 호출하여 분류 결과를 반환. 실패 시 None."""
+        """Claude Code CLI를 호출하여 분류 결과를 반환. 실패 시 None."""
         try:
-            from app.config import settings
+            from app.services.claude_code import CCStatusEvent, CCTextDelta, get_wrapper
 
-            system   = self._build_system_prompt()
-            messages = [{"role": "user", "content": user_text}]
-            full_response = []
+            system = self._build_system_prompt()
+            full_response: list[str] = []
 
-            if settings.ai_provider == "claude":
-                import anthropic
-                client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-                async with client.messages.stream(
-                    model      = settings.claude_model,
-                    max_tokens = 256,
-                    system     = system,
-                    messages   = messages,
-                ) as stream:
-                    async for text in stream.text_stream:
-                        full_response.append(text)
-
-            elif settings.ai_provider == "gemini":
-                if not settings.gemini_api_key:
-                    return None   # 키 미설정 — ADC 폴백으로 인한 행(hang) 방지
-                from google import genai
-                from google.genai import types
-                client = genai.Client(api_key=settings.gemini_api_key)
-                stream = await client.aio.models.generate_content_stream(
-                    model    = settings.gemini_classifier_model,
-                    contents = [types.Content(role="user", parts=[types.Part.from_text(text=user_text)])],
-                    config   = types.GenerateContentConfig(system_instruction=system, max_output_tokens=256),
-                )
-                async for chunk in stream:
-                    if chunk.text:
-                        full_response.append(chunk.text)
-
-            elif settings.ai_provider == "openai":
-                from openai import AsyncOpenAI
-                client = AsyncOpenAI(api_key=settings.openai_api_key)
-                async for chunk in await client.chat.completions.create(
-                    model    = settings.openai_model,
-                    messages = [{"role": "system", "content": system}] + messages,
-                    max_tokens = 256,
-                    stream   = True,
-                ):
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        full_response.append(delta)
-
-            else:  # ollama
-                import httpx, json as _json
-                async with httpx.AsyncClient(timeout=30) as client:
-                    async with client.stream(
-                        "POST",
-                        f"{settings.ollama_base_url}/api/chat",
-                        json={
-                            "model"   : settings.ollama_model,
-                            "messages": [{"role": "system", "content": system}] + messages,
-                            "stream"  : True,
-                        },
-                    ) as resp:
-                        async for line in resp.aiter_lines():
-                            if line:
-                                data = _json.loads(line)
-                                content = data.get("message", {}).get("content", "")
-                                if content:
-                                    full_response.append(content)
+            wrapper = get_wrapper()
+            # 분류는 채팅 세션과 무관한 1회성 호출이므로 세션을 이어가지 않으며,
+            # 분류 호출이 끝난 뒤 실제 대화 세션 ID를 덮어쓰지 않도록 복원한다.
+            saved_session_id = wrapper.session_id
+            try:
+                async for ev in wrapper.stream(user_text, system=system, resume=False):
+                    if isinstance(ev, CCTextDelta):
+                        full_response.append(ev.text)
+                    elif isinstance(ev, CCStatusEvent):
+                        print(f"[Router] Claude Code 분류 호출 실패: {ev.message}", file=sys.stderr)
+                        return None
+            finally:
+                wrapper.session_id = saved_session_id
 
             raw = "".join(full_response)
             parsed = self._parse_response(raw)

@@ -132,29 +132,29 @@ body.amb-clear   .os-bg { background-color: #020b18; }
 .ctrl-btn:hover { filter: brightness(1.3); }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   DYNAMIC OVERLAY BAR — WORKING 모드 전용 슬림 바
-   PC 자동 제어 중에는 다른 모든 자비스 UI를 숨기고 이 바만 노출한다.
+   미니 모드 — 자동 제어(WORKING) 중 우측 하단 80x80 축소 창
+   PC 자동 제어 중에는 다른 모든 자비스 UI를 숨기고 이 미니 뷰만 노출한다.
+   클릭하면 원래 크기/위치로 복원된다.
    ══════════════════════════════════════════════════════════════════════════════ */
-.overlay-bar {
+.mini-mode {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  border-radius: 22px;
+  justify-content: center;
+  border-radius: 50%;
   background: rgba(2, 10, 22, 0.82);
   border: 1px solid rgba(0, 212, 255, 0.35);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 180, 255, 0.15);
   backdrop-filter: blur(10px);
   z-index: 9999;
+  cursor: pointer;
   -webkit-app-region: no-drag;
 }
-.overlay-bar.hidden { display: none; }
+.mini-mode.hidden { display: none; }
 
-.overlay-bar-orb {
-  flex: none;
-  width: 14px; height: 14px;
+.mini-mode-orb {
+  width: 36px; height: 36px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%, #aef6ff, var(--cyan) 60%, #006a99 100%);
   box-shadow: 0 0 10px var(--cyan), 0 0 20px rgba(0, 212, 255, 0.6);
@@ -165,24 +165,14 @@ body.amb-clear   .os-bg { background-color: #020b18; }
   50%      { transform: scale(0.7); opacity: 0.55; }
 }
 
-.overlay-bar-text {
-  flex: 1 1 auto;
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  color: rgba(190, 235, 255, 0.95);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* WORKING 모드 — 오버레이 바를 제외한 모든 UI 숨김 + 창 배경 투명화 */
-body.working-mode .os-bg,
-body.working-mode .os-topbar,
-body.working-mode .os-main {
+/* 미니 모드 — 미니 뷰를 제외한 모든 UI 숨김 + 창 배경 투명화 */
+body.mini-mode .os-bg,
+body.mini-mode .os-topbar,
+body.mini-mode .os-main {
   display: none !important;
 }
-body.working-mode html,
-body.working-mode body {
+body.mini-mode html,
+body.mini-mode body {
   background: transparent !important;
 }
 
@@ -1170,28 +1160,6 @@ html, body {
   color: rgba(160, 210, 240, 0.6);
   font-size: 11px;
   margin: 0;
-}
-.settings-offline-banner {
-  background: rgba(200, 120, 20, 0.12);
-  border: 1px solid rgba(255, 160, 50, 0.35);
-  border-radius: 8px;
-  padding: 10px 12px;
-  color: #ffc878;
-  font-size: 11px;
-  line-height: 1.6;
-}
-.settings-retry-btn {
-  background: rgba(255, 160, 50, 0.18);
-  border: 1px solid rgba(255, 160, 50, 0.45);
-  border-radius: 4px;
-  color: #ffd9a0;
-  font-size: 11px;
-  padding: 1px 8px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.settings-retry-btn:hover {
-  background: rgba(255, 160, 50, 0.32);
 }
 .settings-model-item {
   background: rgba(0, 25, 60, 0.55);
