@@ -1,4 +1,4 @@
-# .gitignore ÆÄÀÏ ³»¿ë
+# .gitignore ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 .env
 node_modules/
 __pycache__/
@@ -7,3 +7,8 @@ jarvis-dashboard-backend/target/
 jarvis-overlay/dist/
 *.jar
 *.exe
+jarvis-core-ai/data/captures/
+jarvis-core-ai/data/screenshots/
+# Python venv
+.venv/
+*.lock.db

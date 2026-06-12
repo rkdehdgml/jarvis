@@ -131,6 +131,61 @@ body.amb-clear   .os-bg { background-color: #020b18; }
 .ctrl-pin      { background: #28c840; }
 .ctrl-btn:hover { filter: brightness(1.3); }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   DYNAMIC OVERLAY BAR — WORKING 모드 전용 슬림 바
+   PC 자동 제어 중에는 다른 모든 자비스 UI를 숨기고 이 바만 노출한다.
+   ══════════════════════════════════════════════════════════════════════════════ */
+.overlay-bar {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-radius: 22px;
+  background: rgba(2, 10, 22, 0.82);
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 180, 255, 0.15);
+  backdrop-filter: blur(10px);
+  z-index: 9999;
+  -webkit-app-region: no-drag;
+}
+.overlay-bar.hidden { display: none; }
+
+.overlay-bar-orb {
+  flex: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #aef6ff, var(--cyan) 60%, #006a99 100%);
+  box-shadow: 0 0 10px var(--cyan), 0 0 20px rgba(0, 212, 255, 0.6);
+  animation: overlayOrbPulse 1.1s ease-in-out infinite;
+}
+@keyframes overlayOrbPulse {
+  0%, 100% { transform: scale(1);   opacity: 1;   }
+  50%      { transform: scale(0.7); opacity: 0.55; }
+}
+
+.overlay-bar-text {
+  flex: 1 1 auto;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: rgba(190, 235, 255, 0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* WORKING 모드 — 오버레이 바를 제외한 모든 UI 숨김 + 창 배경 투명화 */
+body.working-mode .os-bg,
+body.working-mode .os-topbar,
+body.working-mode .os-main {
+  display: none !important;
+}
+body.working-mode html,
+body.working-mode body {
+  background: transparent !important;
+}
+
 /* ── OS 메인 그리드 ──────────────────────────────────────────────────────── */
 .os-main {
   position: fixed;
@@ -802,6 +857,9 @@ html, body {
   background: transparent;
   border: none;
   border-radius: 0;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
 }
 .message.user {
   align-self: flex-end;
@@ -1064,6 +1122,363 @@ html, body {
   font-size: 10px;
   margin-top: 5px;
   letter-spacing: 0.5px;
+}
+
+/* ── AI 엔진 설정 모달 ──────────────────────────────────────────────────── */
+.settings-box {
+  width: 420px;
+}
+.modal-close-btn {
+  position: absolute;
+  top: 14px; right: 16px;
+  width: 28px; height: 28px;
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  border-radius: 50%;
+  background: rgba(0, 25, 60, 0.85);
+  color: rgba(0, 220, 255, 0.7);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.modal-close-btn:hover {
+  color: #fff;
+  border-color: rgba(0, 212, 255, 0.55);
+  box-shadow: 0 0 12px rgba(0, 100, 255, 0.25);
+}
+
+.settings-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.settings-model-list::-webkit-scrollbar {
+  width: 6px;
+}
+.settings-model-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 200, 255, 0.25);
+  border-radius: 3px;
+}
+.settings-model-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings-no-key-note {
+  color: rgba(160, 210, 240, 0.6);
+  font-size: 11px;
+  margin: 0;
+}
+.settings-offline-banner {
+  background: rgba(200, 120, 20, 0.12);
+  border: 1px solid rgba(255, 160, 50, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #ffc878;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.settings-retry-btn {
+  background: rgba(255, 160, 50, 0.18);
+  border: 1px solid rgba(255, 160, 50, 0.45);
+  border-radius: 4px;
+  color: #ffd9a0;
+  font-size: 11px;
+  padding: 1px 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.settings-retry-btn:hover {
+  background: rgba(255, 160, 50, 0.32);
+}
+.settings-model-item {
+  background: rgba(0, 25, 60, 0.55);
+  border: 1px solid rgba(0, 200, 255, 0.15);
+  border-radius: 10px;
+  padding: 14px 16px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.settings-model-item.active {
+  border-color: rgba(0, 212, 255, 0.5);
+  background: rgba(0, 60, 120, 0.4);
+}
+.settings-model-item.locked {
+  opacity: 0.45;
+}
+.settings-model-locked-note {
+  font-size: 11px;
+  color: rgba(208, 238, 255, 0.55);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.settings-model-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings-model-name {
+  color: #d0eeff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* 토글 스위치 */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(0, 40, 70, 0.9);
+  border: 1px solid rgba(0, 200, 255, 0.25);
+  border-radius: 22px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 2px; bottom: 2px;
+  background: #7fd6ff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: rgba(0, 150, 255, 0.5);
+  border-color: rgba(0, 212, 255, 0.6);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+  background: #ffffff;
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+/* API 키 입력창 — 펼침 애니메이션 */
+.settings-api-key-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+}
+.settings-api-key-wrap.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 12px;
+}
+.settings-api-key-wrap > .settings-api-key-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Claude Code (구독) 패널 ──────────────────────────────────────────── */
+.cc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cc-status-card,
+.cc-usage-card {
+  background: rgba(0, 15, 40, 0.6);
+  border: 1px solid rgba(0, 200, 255, 0.15);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.cc-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cc-status-title {
+  color: rgba(0, 180, 255, 0.7);
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.cc-refresh-btn {
+  background: rgba(0, 25, 60, 0.85);
+  border: 1px solid rgba(0, 200, 255, 0.25);
+  border-radius: 6px;
+  color: rgba(0, 220, 255, 0.8);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cc-refresh-btn:hover:not(:disabled) {
+  border-color: rgba(0, 212, 255, 0.55);
+  color: #fff;
+}
+.cc-refresh-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.cc-refresh-btn .spinner {
+  width: 10px; height: 10px;
+  border-width: 1.5px;
+  vertical-align: text-bottom;
+}
+
+.cc-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #d0eeff;
+  font-size: 11.5px;
+  margin: 0;
+  padding: 3px 0;
+}
+.cc-status-row span:first-child { color: rgba(160, 210, 240, 0.6); }
+.cc-ok { color: #6fe6a0; }
+
+.cc-status-line {
+  color: rgba(160, 210, 240, 0.7);
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 4px 0;
+}
+.cc-status-warn { color: #ffc878; }
+
+.cc-link-btn {
+  display: inline-block;
+  width: auto;
+  margin-top: 8px;
+  padding: 8px 16px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-decoration: none;
+  text-align: center;
+}
+
+.cc-cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.cc-cmd {
+  flex: 1;
+  background: rgba(0, 25, 60, 0.85);
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #7fd6ff;
+  font-size: 11px;
+  font-family: var(--font);
+}
+.cc-copy-btn {
+  background: rgba(0, 25, 60, 0.85);
+  border: 1px solid rgba(0, 200, 255, 0.25);
+  border-radius: 6px;
+  color: rgba(0, 220, 255, 0.8);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cc-copy-btn:hover {
+  border-color: rgba(0, 212, 255, 0.55);
+  color: #fff;
+}
+
+.cc-field-group { margin-bottom: 0; }
+.cc-model-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237fd6ff'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 32px;
+}
+
+.cc-usage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #d0eeff;
+  font-size: 11.5px;
+  margin-bottom: 8px;
+}
+.cc-usage-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 40, 70, 0.9);
+  border: 1px solid rgba(0, 200, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.cc-usage-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0066ff, #00d4ff);
+  border-radius: 4px;
+  transition: width 0.25s ease;
+}
+.cc-usage-fill.warn {
+  background: linear-gradient(90deg, #cc4400, #ff8c30);
+}
+
+.cc-advanced-toggle {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: rgba(0, 180, 255, 0.7);
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 4px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cc-advanced-toggle:hover { color: #fff; }
+.cc-advanced-caret { font-size: 9px; }
+
+.cc-advanced-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.25s ease, opacity 0.2s ease;
+}
+.cc-advanced-body.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  margin-top: 10px;
+}
+.cc-advanced-body > .cc-advanced-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.cc-billing-label { font-size: 12px; }
+.cc-billing-warning {
+  color: #ff8090;
+  font-size: 10.5px;
+  line-height: 1.6;
+  margin: 8px 0 0;
+  letter-spacing: 0.3px;
 }
 
 .modal-error {

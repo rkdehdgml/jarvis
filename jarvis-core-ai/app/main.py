@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import chat, vision, speech, health, os_control, tts, presence, proactive, tasks, resources, workspace, scheduler, telegram, weather
+from app.routers import chat, vision, speech, health, os_control, tts, presence, proactive, tasks, resources, workspace, scheduler, telegram, weather, claude_code
 
 app = FastAPI(
     title=settings.app_name,
@@ -31,6 +31,7 @@ app.include_router(workspace.router,  prefix="/api/workspace",  tags=["workspace
 app.include_router(scheduler.router,  prefix="/api/scheduler",  tags=["scheduler"])
 app.include_router(telegram.router,   prefix="/api/telegram",   tags=["telegram"])
 app.include_router(weather.router,    prefix="/api/weather",    tags=["weather"])
+app.include_router(claude_code.router, prefix="/api/claude",    tags=["claude-code"])
 
 
 @app.on_event("startup")

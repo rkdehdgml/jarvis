@@ -19,8 +19,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 import re
+from pathlib import Path
 from urllib.parse import quote
 
+from app.config import settings
 from app.services.agent_router import route, classify_async, list_agents
 
 # ── 고정 페르소나 (모든 요청의 system instruction에 항상 주입) ──────────────────
@@ -31,7 +33,7 @@ JARVIS_PERSONA_PROMPT = (
     "address the user as 'Sir'. Keep your responses concise, structured, and "
     "efficient. Avoid emotional outbursts."
 )
-from app.services.llm_manager import manager, ENGINE_REGISTRY
+from app.services.llm_manager import manager, ALLOWED_ENGINES
 from app.services.memory_service import memory
 from app.services.task_manager import task_manager
 
@@ -58,6 +60,11 @@ class EngineDetectRequest(BaseModel):
 
 class SwitchEngineRequest(BaseModel):
     engine_key: str
+
+
+class ApiKeyUpdateRequest(BaseModel):
+    provider: str   # "gemini" | "openai" | "anthropic" | "groq"
+    api_key: str
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -314,6 +321,51 @@ async def chat_stream(req: ChatRequest):
         force_llm = req.force_llm_route,
     )
 
+    # ── 1-pre. PC 화면 제어(os_agent) 분류 → 실제 실행 후 결과를 텍스트로 반환 ──
+    #   (raw JSON 액션 플랜이 채팅창에 그대로 노출되는 것을 방지)
+    if prompt_set.agent_key == "os_agent":
+        import json as _json
+        from app.services.os_agent import agent as _os_agent
+
+        async def os_generate():
+            async for line in _os_agent.run_stream(req.message):
+                try:
+                    ev = _json.loads(line)
+                except _json.JSONDecodeError:
+                    continue
+                event = ev.get("event")
+                if event == "planning":
+                    yield f"{ev['message']}\n"
+                elif event == "plan":
+                    yield f"{ev['thought']}\n"
+                elif event == "start":
+                    yield f"- {ev['log']}\n"
+                elif event == "error":
+                    yield f"  └ 오류: {ev.get('error') or ev.get('message', '알 수 없는 오류')}\n"
+                elif event == "danger":
+                    yield (
+                        f"\n[위험 작업 감지] {ev['risk_reason']}\n"
+                        f"확인이 필요한 작업이라 자동 실행을 중단했습니다, Sir."
+                    )
+                elif event == "finish":
+                    if ev.get("aborted"):
+                        yield f"\n작업을 중단했습니다: {ev.get('reason')}"
+                    else:
+                        yield f"\n완료했습니다, Sir. (성공 {ev['success']}/{ev['total']})"
+
+        return StreamingResponse(
+            os_generate(),
+            media_type = "text/plain; charset=utf-8",
+            headers    = {
+                "X-Agent-Key":    "os_agent",
+                "X-Agent-Name":   quote(prompt_set.agent_name),
+                "X-Engine-Key":   "os_agent",
+                "X-Engine-Name":  "OS Control Agent",
+                "X-Route-Method":      prompt_set.routing.method,
+                "X-Confidence":        str(prompt_set.routing.confidence),
+            },
+        )
+
     # ── 1-0. JARVIS 고정 페르소나 주입 ──
     prompt_set.system = f"{JARVIS_PERSONA_PROMPT}\n\n{prompt_set.system}"
 
@@ -366,12 +418,10 @@ async def chat_stream(req: ChatRequest):
         headers    = {
             "X-Agent-Key":    prompt_set.agent_key,
             "X-Agent-Name":   quote(prompt_set.agent_name),
-            "X-Engine-Key":   req.engine_key or active.key,
-            "X-Engine-Name":  quote(
-                              (req.engine_key
-                               and ENGINE_REGISTRY[req.engine_key].name
-                               or active.name)
-                              ),
+            # 엔진 잠금: req.engine_key는 manager.stream()에서 무시되므로
+            # 헤더도 항상 실제 사용된 엔진(active)을 그대로 보고한다.
+            "X-Engine-Key":   active.key,
+            "X-Engine-Name":  quote(active.name),
             "X-Route-Method":      prompt_set.routing.method,
             "X-Confidence":        str(prompt_set.routing.confidence),
             **({"X-Debug-Task-Id": debug_task_id} if debug_task_id else {}),
@@ -467,16 +517,74 @@ async def detect_engine_switch(req: EngineDetectRequest):
             "message":    "엔진 전환 명령이 감지되지 않았습니다.",
             "input_text": req.text,
         }
-    try:
-        preset = manager.switch(preset_key)
+    # 엔진 잠금: CLAUDE_CODE 외 엔진으로의 전환 요청은 무시한다 (오류 아님)
+    if preset_key not in ALLOWED_ENGINES:
         return {
-            "switched":    True,
-            "engine_key":  preset.key,
-            "engine_name": preset.name,
-            "provider":    preset.provider,
-            "tier":        preset.tier,
-            "message":     f"음성 명령으로 '{preset.name}'으로 전환되었습니다.",
-            "input_text":  req.text,
+            "switched":   False,
+            "detected":   preset_key,
+            "message":    "JARVIS는 CLAUDE_CODE 엔진으로 고정되어 있어 전환하지 않았습니다.",
+            "input_text": req.text,
         }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    preset = manager.switch(preset_key)
+    return {
+        "switched":    True,
+        "engine_key":  preset.key,
+        "engine_name": preset.name,
+        "provider":    preset.provider,
+        "tier":        preset.tier,
+        "message":     f"음성 명령으로 '{preset.name}'으로 전환되었습니다.",
+        "input_text":  req.text,
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# API 키 설정
+# ══════════════════════════════════════════════════════════════════════════════
+
+_PROVIDER_ENV_MAP = {
+    "gemini":    "GEMINI_API_KEY",
+    "openai":    "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "groq":      "GROQ_API_KEY",
+}
+
+
+def _persist_env_var(key: str, value: str) -> None:
+    """.env 파일의 KEY=value 라인을 갱신(없으면 추가)하여 재시작 후에도 유지되게 한다."""
+    env_path = Path(".env")
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    pattern = re.compile(rf"^{re.escape(key)}=")
+    for i, line in enumerate(lines):
+        if pattern.match(line):
+            lines[i] = f"{key}={value}"
+            break
+    else:
+        lines.append(f"{key}={value}")
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+@router.put("/settings/api-key")
+async def update_api_key(req: ApiKeyUpdateRequest):
+    """AI 엔진 설정 모달에서 입력한 API 키를 런타임 설정 + .env에 반영.
+
+    이후 요청부터 즉시 새 키로 LLM을 호출한다.
+    """
+    env_key = _PROVIDER_ENV_MAP.get(req.provider)
+    if not env_key:
+        raise HTTPException(status_code=400, detail=f"알 수 없는 프로바이더: {req.provider}")
+
+    if req.provider == "gemini":
+        settings.gemini_api_key = req.api_key
+    elif req.provider == "openai":
+        settings.openai_api_key = req.api_key
+    elif req.provider == "anthropic":
+        settings.anthropic_api_key = req.api_key
+    elif req.provider == "groq":
+        settings.groq_api_key = req.api_key
+
+    _persist_env_var(env_key, req.api_key)
+
+    return {
+        "message":  f"{req.provider.upper()} API 키가 저장되었습니다.",
+        "provider": req.provider,
+    }

@@ -157,6 +157,7 @@ async function checkNgrokAndInit() {
       } else {
         appendLog('백엔드 연결 성공', 'success')
       }
+      await syncActiveEngineWithBackend()
       enterIdle()
       connectWebSocket()
     }
@@ -213,6 +214,7 @@ function enterIdle() {
   stopScreenStream()
   $('screenPreview').classList.add('hidden')
   window.jarvis?.setIgnoreMouse?.(false)
+  exitOverlayBarMode()
 }
 
 function enterListening() {
@@ -235,10 +237,32 @@ function enterWorking() {
   _setOsMode('WORKING', 'working')
   sphereLabel.textContent = 'WORKING'
   if (permissionMode !== 'LIMITED') startScreenStream()
+  enterOverlayBarMode()
 }
 
 function exitChatting() {
   enterIdle()
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3-1. Dynamic Overlay Bar — WORKING 중 화면 최상단 슬림 바로 축소
+// ══════════════════════════════════════════════════════════════════════════════
+function enterOverlayBarMode() {
+  document.body.classList.add('working-mode')
+  $('overlayBar').classList.remove('hidden')
+  setOverlayBarText('자비스가 작업을 준비하는 중...')
+  window.jarvis?.enterOverlayBar?.()
+}
+
+function exitOverlayBarMode() {
+  document.body.classList.remove('working-mode')
+  $('overlayBar').classList.add('hidden')
+  window.jarvis?.exitOverlayBar?.()
+}
+
+function setOverlayBarText(text) {
+  const el = $('overlayBarText')
+  if (el) el.textContent = `자비스 : ${text}`
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -429,12 +453,15 @@ function handleWsEvent(event) {
           const action = JSON.parse(event.payload)
           if (action.event === 'plan') {
             appendLog(`OS 계획 수립: ${action.action_count}개 액션`, 'os')
+            setOverlayBarText(action.thought || 'OS 계획을 수립했습니다...')
           } else if (action.event === 'danger') {
             appendLog(`⚠ 위험 작업 감지: ${action.risk_reason}`, 'warn')
+            exitOverlayBarMode()
             showDangerConfirmDialog(action)
           } else if (action.event === 'start') {
             appendLog(action.log || `액션 #${action.index} 시작`, 'os')
             sphereLabel.textContent = action.log?.slice(0, 18) + '...' || 'WORKING'
+            setOverlayBarText(action.log || `액션 #${action.index} 진행 중...`)
           } else if (action.event === 'done') {
             appendLog(`완료: ${action.log || `액션 #${action.index}`} (${action.duration_ms}ms)`, 'success')
           } else if (action.event === 'error') {
@@ -444,6 +471,7 @@ function handleWsEvent(event) {
               ? `OS 작업 중단: ${action.reason}`
               : `OS 작업 완료 — 성공 ${action.success}/${action.total}`
             appendLog(msg, action.aborted ? 'error' : 'success')
+            setOverlayBarText(msg)
             setTimeout(enterIdle, 1200)
           }
         } catch { /* 무시 */ }
@@ -615,17 +643,20 @@ async function runOsCommand(command, assistantEl) {
         switch (action.event) {
           case 'planning':
             assistantEl.textContent = `자비스 : ${action.message}`
+            setOverlayBarText(action.message)
             break
 
           case 'plan':
             appendLog(`OS 계획 수립: ${action.action_count}개 액션 — ${action.thought}`, 'os')
             assistantEl.textContent = `자비스 : ${action.thought}`
+            setOverlayBarText(action.thought)
             break
 
           case 'danger':
             appendLog(`⚠ 위험 작업 감지: ${action.risk_reason}`, 'warn')
             assistantEl.textContent = `자비스 : ⚠ 위험한 작업이 감지되어 실행을 보류했습니다 — ${action.risk_reason}`
             assistantEl.classList.remove('streaming')
+            exitOverlayBarMode()
             showDangerConfirmDialog(action)
             break
 
@@ -633,6 +664,7 @@ async function runOsCommand(command, assistantEl) {
             appendLog(action.log || `액션 #${action.index} 시작`, 'os')
             sphereLabel.textContent = (action.log || 'WORKING').slice(0, 18) + '...'
             assistantEl.textContent = `자비스 : ${action.log || `액션 #${action.index} 진행 중...`}`
+            setOverlayBarText(action.log || `액션 #${action.index} 진행 중...`)
             break
 
           case 'done':
@@ -644,6 +676,7 @@ async function runOsCommand(command, assistantEl) {
               // 계획 생성 실패 등 최상위 오류
               appendLog(action.message, 'error')
               assistantEl.textContent = `자비스 : ${action.message}`
+              setOverlayBarText(action.message)
             } else {
               appendLog(`오류: ${action.error || `액션 #${action.index} 실패`}`, 'error')
             }
@@ -655,6 +688,7 @@ async function runOsCommand(command, assistantEl) {
               : `작업 완료 (성공 ${action.success}/${action.total})`
             appendLog(msg, action.aborted ? 'error' : 'success')
             assistantEl.textContent = `자비스 : ${msg}`
+            setOverlayBarText(msg)
             break
           }
         }
@@ -877,6 +911,7 @@ async function preClassifyMessage(text) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ message: text }),
+      signal:  AbortSignal.timeout(8000),   // 백엔드 행(hang) 시 8초 후 포기 — UI 멈춤 방지
     })
     if (res.ok) return await res.json()
   } catch {}
@@ -922,6 +957,7 @@ async function confirmDangerExecution() {
   const plan = _pendingDangerPlan
   hideDangerModal()
   appendLog('위험 작업 사용자 승인 — 실행 시작', 'warn')
+  enterOverlayBarMode()
 
   try {
     const res = await fetch(`${AI_URL}/api/os/execute`, {
@@ -982,6 +1018,7 @@ async function confirmDangerExecution() {
 function cancelDangerExecution() {
   appendLog('위험 작업 사용자 취소', 'info')
   hideDangerModal()
+  exitOverlayBarMode()
   setTimeout(enterIdle, 500)
 }
 
@@ -1701,12 +1738,507 @@ function flashSphere() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// 15-1. AI 엔진 설정 모달 (신호등 초록 버튼)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// 모달에 노출할 AI 모델 목록 — 백엔드(.env 기반 ENGINE_REGISTRY)에서 동적으로 로드
+// API 키가 필요 없는 프로바이더(로컬 모델 / 구독 기반 Claude Code)
+const SETTINGS_NO_KEY_PROVIDERS = ['ollama', 'claude_code']
+
+const SETTINGS_ACTIVE_KEY = 'jarvis_settings_active_engine'
+const apiKeyStorageKey = provider => `jarvis_apikey_${provider}`
+
+// 모달이 열려 있는 동안의 미저장(pending) 선택 상태 — 저장 버튼을 눌러야 반영됨
+let _pendingActiveEngine = null
+// 모달을 연 시점의 활성 엔진(=A 모델) — 저장 시 변경 여부 비교용
+let _initialActiveEngine = null
+// 백엔드에서 불러온 전체 엔진 목록 캐시
+let _engineList = []
+// 백엔드 연결 실패 시 표시할 오프라인 안내 여부
+let _engineListOffline = false
+
+// 백엔드(8000)에 연결되지 않을 때 모달이 비지 않도록 보여줄 기본 목록
+// (실제 키 저장/엔진 전환은 백엔드 연결 후에만 가능)
+const FALLBACK_ENGINES = [
+  { key: 'CLAUDE_CODE',       name: 'Claude Code (구독)',     provider: 'claude_code', is_active: true  },
+  { key: 'GEMINI_FLASH',      name: 'Gemini 2.5 Flash',       provider: 'gemini',    is_active: false },
+  { key: 'GEMINI_FLASH_LITE', name: 'Gemini 2.5 Flash-Lite',  provider: 'gemini',    is_active: false },
+  { key: 'GEMINI_PRO',        name: 'Gemini 2.5 Pro',         provider: 'gemini',    is_active: false },
+  { key: 'CLAUDE_SONNET',     name: 'Claude Sonnet 4.6',      provider: 'claude',    is_active: false },
+  { key: 'GPT4O',             name: 'GPT-4o',                 provider: 'openai',    is_active: false },
+  { key: 'GROQ_LLAMA_70B',    name: 'Llama 3.3 70B (Groq)',   provider: 'groq',      is_active: false },
+  { key: 'OLLAMA_DEEPSEEK',   name: 'DeepSeek-R1 (로컬)',      provider: 'ollama',    is_active: false },
+]
+
+// JARVIS는 CLAUDE_CODE 엔진으로 고정되어 있다 (백엔드 ALLOWED_ENGINES).
+// 과거 버전에서 localStorage에 다른 엔진이 저장되어 있을 수 있으므로,
+// 시작 시 항상 CLAUDE_CODE로 정리해 더 이상 다른 엔진 전환을 시도하지 않는다.
+const LOCKED_ENGINE_KEY = 'CLAUDE_CODE'
+
+async function syncActiveEngineWithBackend() {
+  localStorage.setItem(SETTINGS_ACTIVE_KEY, LOCKED_ENGINE_KEY)
+}
+
+// fetch에 타임아웃을 적용 — 백엔드가 응답 없이 멈춰 있을 때 무한 대기를 방지
+async function fetchWithTimeout(url, options = {}, timeoutMs = 5000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { ...options, signal: controller.signal })
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('응답 시간 초과')
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function fetchEngineList() {
+  try {
+    const res = await fetchWithTimeout(`${AI_URL}/api/chat/engines`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    _engineList = await res.json()
+    _engineListOffline = false
+  } catch (e) {
+    appendLog(`엔진 목록 조회 실패 (백엔드 연결 안됨): ${e.message}`, 'error')
+    _engineList = FALLBACK_ENGINES
+    _engineListOffline = true
+  }
+  return _engineList
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 15-2. Claude Code (구독) 패널 — AI 엔진 연결 상태 / 모델 선택 / 오늘 사용량 / 고급
+// ══════════════════════════════════════════════════════════════════════════════
+
+const CC_INSTALL_URL = 'https://docs.claude.com/en/docs/claude-code/overview'
+const CC_LOGIN_CMD   = 'claude'   // 안내: 터미널에서 실행 후 /login 진행
+
+// /api/claude/status 결과 캐시
+let _ccStatus = null
+// /api/claude/usage 결과 캐시
+let _ccUsage = null
+// /api/claude/settings 원본(저장된 값) 캐시
+let _ccSettingsLoaded = null
+// 미저장(pending) 모델 선택 — '' (기본) | 'sonnet' | 'haiku'
+let _ccPendingModel = null
+// 미저장(pending) allow_api_key_billing
+let _ccPendingBilling = null
+// "고급" 섹션 펼침 여부
+let _ccAdvancedOpen = false
+// 새로고침 버튼 로딩 상태
+let _ccStatusRefreshing = false
+
+async function fetchCCStatus(force = false) {
+  try {
+    const res = await fetchWithTimeout(
+      `${AI_URL}/api/claude/${force ? 'status/refresh' : 'status'}`,
+      { method: force ? 'POST' : 'GET' },
+    )
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    _ccStatus = await res.json()
+  } catch (e) {
+    _ccStatus = { installed: null, error: e.message }
+  }
+  return _ccStatus
+}
+
+async function fetchCCUsage() {
+  try {
+    const res = await fetchWithTimeout(`${AI_URL}/api/claude/usage`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    _ccUsage = await res.json()
+  } catch (e) {
+    _ccUsage = null
+  }
+  return _ccUsage
+}
+
+async function fetchCCSettings() {
+  try {
+    const res = await fetchWithTimeout(`${AI_URL}/api/claude/settings`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    _ccSettingsLoaded = await res.json()
+  } catch (e) {
+    _ccSettingsLoaded = null
+  }
+  return _ccSettingsLoaded
+}
+
+function renderCCPanel() {
+  if (_ccPendingModel === null) {
+    _ccPendingModel = (_ccSettingsLoaded && _ccSettingsLoaded.model) || ''
+  }
+  if (_ccPendingBilling === null) {
+    _ccPendingBilling = !!(_ccSettingsLoaded && _ccSettingsLoaded.allow_api_key_billing)
+  }
+
+  const st = _ccStatus || {}
+
+  // ── AI 엔진 연결 상태 카드 ──
+  let statusBody
+  if (!st || st.installed === null || st.installed === undefined) {
+    statusBody = `<p class="cc-status-line">상태를 불러오지 못했습니다. AI 코어 서버 연결을 확인해 주세요.</p>`
+  } else if (!st.installed) {
+    statusBody = `
+      <p class="cc-status-line cc-status-warn">Claude Code CLI가 설치되어 있지 않습니다.</p>
+      <a class="setup-btn setup-btn-secondary cc-link-btn" href="${CC_INSTALL_URL}" target="_blank" rel="noopener">설치 안내 페이지 열기</a>`
+  } else if (st.logged_in === false) {
+    statusBody = `
+      <p class="cc-status-row"><span>CLI 버전</span><span>v${escHtml(st.version || '?')}</span></p>
+      <p class="cc-status-line cc-status-warn">로그인이 필요합니다. 터미널에서 아래 명령을 실행해 로그인을 완료한 뒤 새로고침해 주세요.</p>
+      <div class="cc-cmd-row">
+        <code class="cc-cmd">${escHtml(CC_LOGIN_CMD)}</code>
+        <button type="button" class="cc-copy-btn" id="ccCopyLoginCmd">복사</button>
+      </div>`
+  } else {
+    const authLabel = st.auth_method === 'subscription_oauth' ? '구독 (OAuth)'
+                     : st.auth_method === 'api_key'            ? 'API 키'
+                     : '확인 불가'
+    statusBody = `
+      <p class="cc-status-row"><span>CLI 버전</span><span>v${escHtml(st.version || '?')}</span></p>
+      <p class="cc-status-row"><span>로그인</span><span class="cc-ok">완료</span></p>
+      <p class="cc-status-row"><span>인증 방식</span><span>${escHtml(authLabel)}</span></p>`
+  }
+
+  // ── 오늘 사용량 게이지 ──
+  let usageHtml = `<p class="cc-status-line">사용량 정보를 불러올 수 없습니다.</p>`
+  if (_ccUsage) {
+    const limit = _ccUsage.daily_limit || 0
+    const pct = limit ? Math.min(100, Math.round((_ccUsage.calls / limit) * 100)) : 0
+    usageHtml = `
+      <div class="cc-usage-row">
+        <span>호출 ${_ccUsage.calls} / ${limit}회</span>
+        <span>≈ $${(_ccUsage.cost_usd || 0).toFixed(3)}</span>
+      </div>
+      <div class="cc-usage-bar"><div class="cc-usage-fill ${_ccUsage.over_warn ? 'warn' : ''}" style="width:${pct}%"></div></div>`
+  }
+
+  // ── 모델 선택 (기본 / Sonnet / Haiku) ──
+  const modelOptions = [
+    { value: '',       label: '기본 (플랜 권장)' },
+    { value: 'sonnet', label: 'Sonnet' },
+    { value: 'haiku',  label: 'Haiku' },
+  ]
+  const modelSelectHtml = `
+    <select class="modal-input cc-model-select" id="ccModelSelect">
+      ${modelOptions.map(o => `<option value="${o.value}" ${o.value === _ccPendingModel ? 'selected' : ''}>${o.label}</option>`).join('')}
+    </select>`
+
+  return `
+    <div class="cc-panel">
+      <div class="cc-status-card">
+        <div class="cc-status-header">
+          <span class="cc-status-title">AI 엔진 연결 상태</span>
+          <button type="button" class="cc-refresh-btn" id="ccRefreshBtn" ${_ccStatusRefreshing ? 'disabled' : ''}>
+            ${_ccStatusRefreshing ? '<span class="spinner"></span>' : '↻ 새로고침'}
+          </button>
+        </div>
+        ${statusBody}
+      </div>
+
+      <div class="field-group cc-field-group">
+        <label class="field-label">모델</label>
+        ${modelSelectHtml}
+      </div>
+
+      <div class="cc-usage-card">
+        <div class="cc-status-title">오늘 사용량</div>
+        ${usageHtml}
+      </div>
+
+      <div class="cc-advanced">
+        <button type="button" class="cc-advanced-toggle" id="ccAdvancedToggle">
+          고급 <span class="cc-advanced-caret">${_ccAdvancedOpen ? '▲' : '▼'}</span>
+        </button>
+        <div class="cc-advanced-body ${_ccAdvancedOpen ? 'open' : ''}">
+          <div class="cc-advanced-inner">
+            <div class="settings-model-row">
+              <span class="settings-model-name cc-billing-label">API 키 종량 결제 허용</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="ccBillingToggle" ${_ccPendingBilling ? 'checked' : ''} />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <p class="cc-billing-warning">⚠ 켜면 구독 대신 종량 요금이 청구될 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>`
+}
+
+function renderSettingsModal() {
+  const list = $('settingsModelList')
+
+  if (_pendingActiveEngine === null) {
+    // 백엔드가 응답 중이면 서버의 is_active(실제 활성 엔진)를 최우선으로 신뢰한다.
+    // localStorage는 백엔드가 오프라인일 때만 fallback으로 사용 — 그렇지 않으면
+    // "로컬엔 B로 저장됨" vs "백엔드는 실제로 A 사용 중" 같은 불일치가 화면에 가려진다.
+    let activeEngine = null
+    if (!_engineListOffline) {
+      const serverActive = _engineList.find(m => m.is_active)
+      activeEngine = serverActive ? serverActive.key : null
+    }
+    if (!activeEngine) {
+      activeEngine = localStorage.getItem(SETTINGS_ACTIVE_KEY) || engineKey
+    }
+    if (!_engineList.some(m => m.key === activeEngine)) {
+      const fallback = _engineList.find(m => m.is_active) || _engineList[0]
+      activeEngine = fallback ? fallback.key : null
+    }
+    _pendingActiveEngine = activeEngine
+    _initialActiveEngine = activeEngine
+  }
+
+  const offlineBanner = _engineListOffline ? `
+    <div class="settings-offline-banner">
+      ⚠ AI 코어 서버(localhost:8000)에 연결할 수 없어 기본 목록을 표시합니다.<br/>
+      서버를 실행한 뒤 <button type="button" id="settingsRetryBtn" class="settings-retry-btn">다시 시도</button>해 주세요.
+    </div>` : ''
+
+  list.innerHTML = offlineBanner + _engineList.map(model => {
+    const isActive  = model.key === _pendingActiveEngine
+    const isLocked  = model.key !== LOCKED_ENGINE_KEY
+    const needsKey  = !SETTINGS_NO_KEY_PROVIDERS.includes(model.provider)
+    const savedKey  = localStorage.getItem(apiKeyStorageKey(model.provider)) || ''
+    return `
+      <div class="settings-model-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}" data-engine="${model.key}">
+        <div class="settings-model-row">
+          <span class="settings-model-name">${escHtml(model.name)}</span>
+          ${isLocked
+            ? `<span class="settings-model-locked-note" title="JARVIS는 Claude Code(구독) 엔진으로 고정되어 있습니다">사용 안 함</span>`
+            : `<label class="toggle-switch">
+            <input type="checkbox" class="settings-model-toggle" data-engine="${model.key}" ${isActive ? 'checked' : ''} />
+            <span class="toggle-slider"></span>
+          </label>`}
+        </div>
+        ${model.provider === 'claude_code' ? `
+        <div class="settings-api-key-wrap ${isActive ? 'open' : ''}">
+          <div class="settings-api-key-inner">
+            ${renderCCPanel()}
+          </div>
+        </div>` : needsKey ? `
+        <div class="settings-api-key-wrap ${isActive ? 'open' : ''}">
+          <div class="settings-api-key-inner">
+            <input type="password" class="modal-input settings-api-key-input"
+                   data-provider="${model.provider}"
+                   placeholder="${model.provider.toUpperCase()} API 키 입력"
+                   value="${escHtml(savedKey)}" />
+          </div>
+        </div>` : `
+        <div class="settings-api-key-wrap ${isActive ? 'open' : ''}">
+          <div class="settings-api-key-inner">
+            <p class="settings-no-key-note">로컬 모델 — API 키가 필요 없습니다</p>
+          </div>
+        </div>`}
+      </div>`
+  }).join('')
+
+  // 토글 스위치 — 라디오 방식(한 번에 하나만 ON, 네트워크 호출 없이 화면 상태만 갱신)
+  list.querySelectorAll('.settings-model-toggle').forEach(toggle => {
+    toggle.addEventListener('change', () => {
+      if (!toggle.checked) {
+        // 자기 자신을 끄는 건 허용하지 않음 (항상 하나는 활성 상태)
+        toggle.checked = true
+        return
+      }
+      _pendingActiveEngine = toggle.dataset.engine
+      renderSettingsModal()
+    })
+  })
+
+  // 오프라인 배너의 "다시 시도" 버튼 — 백엔드 재조회
+  $('settingsRetryBtn')?.addEventListener('click', async () => {
+    _pendingActiveEngine = null
+    _initialActiveEngine = null
+    await fetchEngineList()
+    renderSettingsModal()
+  })
+
+  // ── Claude Code 패널 이벤트 바인딩 ──
+  $('ccRefreshBtn')?.addEventListener('click', async () => {
+    _ccStatusRefreshing = true
+    renderSettingsModal()
+    await Promise.all([fetchCCStatus(true), fetchCCUsage()])
+    _ccStatusRefreshing = false
+    renderSettingsModal()
+  })
+
+  $('ccCopyLoginCmd')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(CC_LOGIN_CMD)
+      appendLog(`명령어를 클립보드에 복사했습니다: ${CC_LOGIN_CMD}`, 'success')
+    } catch (e) {
+      appendLog(`클립보드 복사 실패: ${e.message}`, 'error')
+    }
+  })
+
+  $('ccModelSelect')?.addEventListener('change', (e) => {
+    _ccPendingModel = e.target.value
+  })
+
+  $('ccAdvancedToggle')?.addEventListener('click', () => {
+    _ccAdvancedOpen = !_ccAdvancedOpen
+    renderSettingsModal()
+  })
+
+  $('ccBillingToggle')?.addEventListener('change', (e) => {
+    _ccPendingBilling = e.target.checked
+  })
+}
+
+async function openSettingsModal() {
+  _pendingActiveEngine = null   // 열 때마다 저장된 상태 기준으로 다시 계산
+  _initialActiveEngine = null
+  _ccPendingModel = null
+  _ccPendingBilling = null
+  _ccAdvancedOpen = false
+  // 모달부터 먼저 열어 백엔드 응답 지연/실패와 무관하게 즉시 반응하도록 함
+  $('settingsModal').classList.remove('hidden')
+  try {
+    await Promise.all([fetchEngineList(), fetchCCStatus(), fetchCCUsage(), fetchCCSettings()])
+    renderSettingsModal()
+  } catch (e) {
+    appendLog(`설정 모달 로드 실패: ${e.message}`, 'error')
+  }
+}
+
+function closeSettingsModal() {
+  $('settingsModal').classList.add('hidden')
+}
+
+// ── API 키를 백엔드(.env)에 반영하고, 성공한 경우에만 로컬 스토리지에 기록 ───────
+// 백엔드 반영이 실패/타임아웃되면 localStorage를 건드리지 않아
+// "화면엔 저장된 것처럼 보이는데 실제론 반영 안 됨" 상태를 방지한다.
+async function persistApiKey(provider, value) {
+  try {
+    const res = await fetchWithTimeout(`${AI_URL}/api/chat/settings/api-key`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ provider, api_key: value }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    localStorage.setItem(apiKeyStorageKey(provider), value)
+    return true
+  } catch (e) {
+    appendLog(`${provider.toUpperCase()} API 키 ${value ? '저장' : '초기화'} 실패: ${e.message}`, 'error')
+    return false
+  }
+}
+
+// ── 저장 버튼: B 모델 설정/키 반영 + A 모델 비활성화·키 초기화를 동시에 수행 ──────
+async function saveSettings() {
+  const btn      = $('settingsSaveBtn')
+  const btnText  = $('settingsSaveBtnText')
+  const spinner  = $('settingsSaveBtnSpinner')
+
+  btn.disabled = true
+  btnText.classList.add('hidden')
+  spinner.classList.remove('hidden')
+
+  try {
+    const newEngine = _pendingActiveEngine
+    const prevEngine = _initialActiveEngine
+    const newModel  = _engineList.find(m => m.key === newEngine)
+    const prevModel = _engineList.find(m => m.key === prevEngine)
+
+    if (!newModel) {
+      appendLog('선택된 엔진 정보를 찾을 수 없습니다.', 'error')
+      return
+    }
+
+    // ① 새로 선택한 B 모델의 API 키를 시스템(.env)에 저장
+    let keyOk = true
+    if (!SETTINGS_NO_KEY_PROVIDERS.includes(newModel.provider)) {
+      const input = findActiveApiKeyInput(newModel.provider)
+      const value = (input?.value || '').trim()
+      keyOk = await persistApiKey(newModel.provider, value)
+    }
+
+    // ② 기존 A 모델은 '미사용' 처리 — provider가 바뀌었다면 기존 API 키를 초기화
+    //    (이 단계 실패는 치명적이지 않으므로 전체 저장을 막지는 않음)
+    if (
+      prevModel &&
+      prevModel.key !== newModel.key &&
+      prevModel.provider !== newModel.provider &&
+      !SETTINGS_NO_KEY_PROVIDERS.includes(prevModel.provider)
+    ) {
+      await persistApiKey(prevModel.provider, '')
+    }
+
+    // ③ 활성 엔진 전환 — B 모델의 설정 정보를 시스템에 반영
+    let engineOk = true
+    try {
+      const res = await fetchWithTimeout(`${AI_URL}/api/chat/engine/${newEngine}`, { method: 'PUT' })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      updateEngineInfo(newEngine, null)
+    } catch (e) {
+      engineOk = false
+      appendLog(`엔진 전환 실패: ${e.message}`, 'error')
+    }
+
+    // 백엔드에 실제로 반영된 항목만 localStorage에 기록 — 불일치 방지
+    if (engineOk) {
+      localStorage.setItem(SETTINGS_ACTIVE_KEY, newEngine)
+    }
+
+    // ④ Claude Code(구독) 통합 모듈 설정 반영 — 모델 선택 / 종량 결제 허용 여부
+    //    (claude_settings.json은 채팅 엔진 활성 여부와 무관하게 항상 유효)
+    if (_ccPendingModel !== null || _ccPendingBilling !== null) {
+      try {
+        const patch = {}
+        if (_ccPendingModel !== null)   patch.model = _ccPendingModel || null
+        if (_ccPendingBilling !== null) patch.allow_api_key_billing = _ccPendingBilling
+        const res = await fetchWithTimeout(`${AI_URL}/api/claude/settings`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(patch),
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        _ccSettingsLoaded = await res.json()
+      } catch (e) {
+        engineOk = false
+        appendLog(`Claude Code 설정 저장 실패: ${e.message}`, 'error')
+      }
+    }
+
+    if (!keyOk || !engineOk) {
+      appendLog('일부 설정이 저장되지 않았습니다. 백엔드 연결을 확인한 뒤 다시 시도해 주세요.', 'error')
+      // 모달은 열어둔 채로 사용자가 재시도할 수 있게 한다
+      return
+    }
+
+    appendLog('AI 엔진 설정이 저장되었습니다.', 'success')
+    closeSettingsModal()
+  } finally {
+    btn.disabled = false
+    btnText.classList.remove('hidden')
+    spinner.classList.add('hidden')
+  }
+}
+
+// 활성(open) 상태인 모델 항목의 API 키 입력란을 찾아 반환
+function findActiveApiKeyInput(provider) {
+  return document.querySelector(
+    `.settings-model-item.active .settings-api-key-input[data-provider="${provider}"]`
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // 16. 이벤트 바인딩
 // ══════════════════════════════════════════════════════════════════════════════
 
 // 창 제어 버튼
 $('btnClose').addEventListener('click',    () => window.jarvis?.closeWindow())
 $('btnMinimize').addEventListener('click', () => window.jarvis?.minimizeWindow())
+
+// 신호등 초록 버튼 → AI 엔진 설정 모달
+$('btnPin').addEventListener('click', openSettingsModal)
+$('settingsCloseBtn').addEventListener('click', closeSettingsModal)
+$('settingsSaveBtn').addEventListener('click', saveSettings)
+$('settingsModal').addEventListener('click', (e) => {
+  if (e.target.id === 'settingsModal') closeSettingsModal()
+})
 
 // 구체 클릭 → 채팅 열기
 sphereCore.addEventListener('click', () => {
@@ -1961,7 +2493,6 @@ function updateAmbient(wmoCode) {
 const SLASH_COMMANDS = [
   { cmd: '/clear',   desc: '채팅 기록 지우기' },
   { cmd: '/status',  desc: '시스템 상태 표시' },
-  { cmd: '/boost',   desc: 'Claude로 엔진 전환' },
   { cmd: '/log',     desc: '로그 창 열기' },
   { cmd: '/dev',     desc: '개발 모드 전환' },
   { cmd: '/focus',   desc: '집중 모드 (사이드 패널 숨김)' },
@@ -2036,11 +2567,6 @@ function execSlash(cmd) {
       appendMessage('assistant', `Sir, 현재 시스템 상태:\nCPU: ${cpu} · RAM: ${ram}`)
       break
     }
-    case '/boost':
-      fetch(`${AI_URL}/api/chat/engine/CLAUDE_SONNET`, { method: 'PUT' })
-        .then(() => appendMessage('assistant', 'Sir, Claude Sonnet으로 전환했습니다.'))
-        .catch(() => appendMessage('assistant', '엔진 전환 실패. Claude API 키를 확인해주세요.'))
-      break
     case '/log':
       window.jarvis?.openLogWindow?.()
       break

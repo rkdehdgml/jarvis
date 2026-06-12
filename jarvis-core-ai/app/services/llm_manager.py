@@ -8,6 +8,7 @@ llm_manager.py — JARVIS LLM Engine Manager
   · 각 엔진별 토큰 수 · 지연시간 메타데이터 수집
 
 지원 엔진 프리셋:
+  [구독]      CLAUDE_CODE (기본 — Claude Code CLI, API 키 불필요)
   [무료 로컬]  OLLAMA_DEEPSEEK | OLLAMA_LLAMA | OLLAMA_MISTRAL
   [유료 API]  CLAUDE_HAIKU | CLAUDE_SONNET | CLAUDE_OPUS
               GPT4O_MINI  | GPT4O
@@ -53,6 +54,18 @@ class EnginePreset:
 
 # 프리셋 레지스트리 ─────────────────────────────────────────────────────────
 ENGINE_REGISTRY: dict[str, EnginePreset] = {p.key: p for p in [
+
+    # ── 구독 (Claude Code CLI) — 기본 엔진 ──────────────────────────────────
+    EnginePreset(
+        key         = "CLAUDE_CODE",
+        name        = "Claude Code (구독)",
+        provider    = "claude_code",
+        model_id    = "claude-code",
+        tier        = "subscription",
+        max_tokens  = 0,    # CLI가 관리 — 미사용
+        description = "Claude Code 헤드리스 모드 — 구독 기반, API 키 불필요 — 기본 엔진",
+        is_default  = True,
+    ),
 
     # ── 무료 로컬 (Ollama) ──────────────────────────────────────────────────
     EnginePreset(
@@ -149,8 +162,16 @@ ENGINE_REGISTRY: dict[str, EnginePreset] = {p.key: p for p in [
         model_id    = "gemini-2.5-flash",
         tier        = "paid",
         max_tokens  = 8192,
-        description = "Google 경량 모델 — 빠른 응답, 저비용 — 기본 모델",
-        is_default  = True,
+        description = "Google 경량 모델 — 빠른 응답, 저비용",
+    ),
+    EnginePreset(
+        key         = "GEMINI_FLASH_LITE",
+        name        = "Gemini 2.5 Flash-Lite",
+        provider    = "gemini",
+        model_id    = "gemini-2.5-flash-lite",
+        tier        = "paid",
+        max_tokens  = 8192,
+        description = "Google 초경량 모델 — 가장 빠르고 저렴",
     ),
     EnginePreset(
         key         = "GEMINI_PRO",
@@ -161,10 +182,35 @@ ENGINE_REGISTRY: dict[str, EnginePreset] = {p.key: p for p in [
         max_tokens  = 16384,
         description = "Google 플래그십 — 고난도 추론·긴 컨텍스트",
     ),
+
+    # ── 유료/무료 API (Groq) ──────────────────────────────────────────────────
+    EnginePreset(
+        key         = "GROQ_LLAMA_70B",
+        name        = "Llama 3.3 70B (Groq)",
+        provider    = "groq",
+        model_id    = "llama-3.3-70b-versatile",
+        tier        = "free",
+        max_tokens  = 8192,
+        description = "Groq LPU 초고속 추론 — 대형 모델, 무료 한도 제공",
+    ),
+    EnginePreset(
+        key         = "GROQ_LLAMA_8B",
+        name        = "Llama 3.1 8B Instant (Groq)",
+        provider    = "groq",
+        model_id    = "llama-3.1-8b-instant",
+        tier        = "free",
+        max_tokens  = 8192,
+        description = "Groq LPU 초고속 추론 — 경량 모델, 가장 빠른 응답",
+    ),
 ]}
 
 # 기본 엔진 프리셋 키
 _DEFAULT_ENGINE_KEY = next(k for k, v in ENGINE_REGISTRY.items() if v.is_default)
+
+# ── 엔진 잠금 (절대 변경 금지) ────────────────────────────────────────────────
+# JARVIS는 사용자의 Claude Code 구독만 두뇌로 사용한다. 다른 엔진으로의 전환은
+# (UI/음성명령/엔진 목록 조회 실패 폴백 등 어떤 경로로도) 허용되지 않는다.
+ALLOWED_ENGINES: frozenset[str] = frozenset({"CLAUDE_CODE"})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -208,6 +254,9 @@ class _TokenAccumulator:
 
 _SWITCH_PATTERNS: list[tuple[str, str]] = [
 
+    # ── Claude Code (구독) — 일반 claude 패턴보다 먼저 매칭 ──────────────────
+    (r"\b(claude\s*code|클로드\s*코드|코드\s*엔진)\b",  "CLAUDE_CODE"),
+
     # ── DeepSeek ─────────────────────────────────────────────────────────────
     (r"\b(deepseek|딥시크|deep\s*seek)\b",           "OLLAMA_DEEPSEEK"),
 
@@ -238,8 +287,17 @@ _SWITCH_PATTERNS: list[tuple[str, str]] = [
     # ── Gemini Pro ───────────────────────────────────────────────────────────
     (r"\b(gemini|제미나이|제미니)\s*(pro|프로|2\.5)\b", "GEMINI_PRO"),
 
+    # ── Gemini Flash-Lite ────────────────────────────────────────────────────
+    (r"\b(gemini|제미나이|제미니)\s*(flash.?lite|플래시\s*라이트)\b", "GEMINI_FLASH_LITE"),
+
     # ── Gemini Flash / 총칭 ──────────────────────────────────────────────────
-    (r"\b(gemini|제미나이|제미니)\s*(flash|플래시|2\.0)?\b", "GEMINI_FLASH"),
+    (r"\b(gemini|제미나이|제미니)\s*(flash|플래시|2\.5|2\.0)?\b", "GEMINI_FLASH"),
+
+    # ── Groq Llama 8B (경량) ─────────────────────────────────────────────────
+    (r"\b(groq|그록|그로크)\s*(8b|8\s*billion|작은|경량|빠른)\b", "GROQ_LLAMA_8B"),
+
+    # ── Groq 총칭 → Llama 70B (기본) ─────────────────────────────────────────
+    (r"\b(groq|그록|그로크)\s*(70b|llama|라마)?\b", "GROQ_LLAMA_70B"),
 ]
 
 # 트리거 동사 (이 단어와 함께 등장해야 명령으로 인정)
@@ -300,10 +358,10 @@ class LLMManager:
             ValueError: 알 수 없는 키
         """
         key = key.upper().strip()
-        if key not in ENGINE_REGISTRY:
-            available = ", ".join(ENGINE_REGISTRY.keys())
+        if key not in ALLOWED_ENGINES:
             raise ValueError(
-                f"'{key}'는 유효한 엔진 키가 아닙니다.\n사용 가능: {available}"
+                f"'{key}' 엔진으로 전환할 수 없습니다 — JARVIS는 CLAUDE_CODE "
+                f"엔진으로 고정되어 있으며 전환이 허용되지 않습니다."
             )
         prev = self._active_key
         self._active_key = key
@@ -567,6 +625,98 @@ class LLMManager:
         except Exception as e:
             yield f"\n[JARVIS 오류] Gemini 호출 실패: {e}"
 
+    async def _stream_groq(
+        self,
+        preset: EnginePreset,
+        messages: list[dict],
+        system: str,
+        tokens: _TokenAccumulator,
+    ) -> AsyncGenerator[str, None]:
+        """Groq 스트리밍 호출 (OpenAI 호환 API)."""
+        from openai import AsyncOpenAI, AuthenticationError, RateLimitError
+        from app.config import settings
+
+        api_key = settings.groq_api_key
+        if not api_key:
+            yield "\n[JARVIS 오류] GROQ_API_KEY가 설정되지 않았습니다."
+            return
+
+        client = AsyncOpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        full_messages = (
+            [{"role": "system", "content": system}] if system else []
+        ) + messages
+
+        try:
+            stream = await client.chat.completions.create(
+                model      = preset.model_id,
+                messages   = full_messages,
+                max_tokens = preset.max_tokens,
+                stream     = True,
+                stream_options={"include_usage": True},
+            )
+            async for chunk in stream:
+                if chunk.usage:
+                    tokens.prompt     = chunk.usage.prompt_tokens
+                    tokens.completion = chunk.usage.completion_tokens
+
+                delta = chunk.choices[0].delta.content if chunk.choices else None
+                if delta:
+                    yield delta
+
+        except AuthenticationError:
+            yield "\n[JARVIS 오류] Groq API 키가 유효하지 않습니다."
+        except RateLimitError:
+            yield "\n[JARVIS 오류] Groq API 요청 한도를 초과했습니다. 잠시 후 재시도하세요."
+        except Exception as e:
+            yield f"\n[JARVIS 오류] Groq 호출 실패: {e}"
+
+    async def _stream_claude_code(
+        self,
+        preset: EnginePreset,
+        messages: list[dict],
+        system: str,
+        tokens: _TokenAccumulator,
+    ) -> AsyncGenerator[str, None]:
+        """Claude Code CLI(구독) 스트리밍 호출.
+
+        대화 연속성은 CLI 세션(--resume)이 담당하므로 마지막 사용자 메시지만
+        전달한다. 페르소나(system)는 --append-system-prompt로 주입된다.
+        미설치/미로그인/예산초과/한도도달은 한국어 안내문으로 변환해 yield하고,
+        기계가 읽을 상태는 tokens.extra → 메타 청크에 병합된다.
+        """
+        from app.services.claude_code import (
+            CCResult, CCStatusEvent, CCTextDelta, CCWarning, get_wrapper,
+        )
+
+        wrapper = get_wrapper()
+        prompt = messages[-1].get("content", "") if messages else ""
+        extra: dict = {}
+        tokens.extra = extra            # stream()이 메타 청크에 병합
+
+        try:
+            async for ev in wrapper.stream(prompt, system=system, resume=True):
+                if isinstance(ev, CCTextDelta):
+                    yield ev.text
+                elif isinstance(ev, CCResult):
+                    tokens.prompt     = ev.input_tokens
+                    tokens.completion = ev.output_tokens
+                    extra.update({
+                        "status":     "ok",
+                        "cost_usd":   ev.total_cost_usd,
+                        "num_turns":  ev.num_turns,
+                        "session_id": ev.session_id,
+                    })
+                elif isinstance(ev, CCStatusEvent):
+                    extra.update({"status": ev.status.value,
+                                  "reset_at": ev.reset_at})
+                    yield f"\n[JARVIS] {ev.message}"
+                elif isinstance(ev, CCWarning):
+                    extra.setdefault("warnings", []).append(ev.message)
+                    yield f"\n[JARVIS 경고] {ev.message}"
+                # CCInit / CCToolUse / CCToolResult: 채팅 텍스트 미출력
+        except Exception as e:
+            yield f"\n[JARVIS 오류] Claude Code 호출 실패: {e}"
+
     # ══════════════════════════════════════════════════════════════════════════
     # 6. 엔진 디스패처
     # ══════════════════════════════════════════════════════════════════════════
@@ -580,10 +730,12 @@ class LLMManager:
     ) -> AsyncGenerator[str, None]:
         """프로바이더에 따라 올바른 스트리밍 제너레이터를 반환."""
         dispatch = {
-            "ollama": self._stream_ollama,
-            "claude": self._stream_claude,
-            "openai": self._stream_openai,
-            "gemini": self._stream_gemini,
+            "claude_code": self._stream_claude_code,
+            "ollama":      self._stream_ollama,
+            "claude":      self._stream_claude,
+            "openai":      self._stream_openai,
+            "gemini":      self._stream_gemini,
+            "groq":        self._stream_groq,
         }
         handler = dispatch.get(preset.provider)
         if handler is None:
@@ -608,7 +760,9 @@ class LLMManager:
         Yields:
             응답 텍스트 청크 (str)
         """
-        preset  = ENGINE_REGISTRY.get(override_key or self._active_key,
+        # 엔진 잠금: 허용되지 않은 override_key는 무시하고 현재 활성 엔진을 사용
+        key     = override_key.upper().strip() if override_key else None
+        preset  = ENGINE_REGISTRY.get(key if key in ALLOWED_ENGINES else self._active_key,
                                       self.active_preset)
         tokens  = _TokenAccumulator()
 
@@ -629,6 +783,8 @@ class LLMManager:
             "tokens":     tokens.total,
             "p_tokens":   tokens.prompt,
             "c_tokens":   tokens.completion,
+            # claude_code 등 프로바이더별 부가 메타 (status, cost_usd, session_id 등)
+            **getattr(tokens, "extra", {}),
         }
         yield f"\x00{json.dumps(meta, ensure_ascii=False)}"   # NUL prefix로 메타 청크 표시
 
@@ -647,7 +803,9 @@ class LLMManager:
         stream()과 달리 전체 응답을 모아서 반환하므로 배치 처리 / 테스트에 적합.
         네트워크 오류 시 max_retries 횟수만큼 지수 백오프로 재시도.
         """
-        preset  = ENGINE_REGISTRY.get(override_key or self._active_key,
+        # 엔진 잠금: 허용되지 않은 override_key는 무시하고 현재 활성 엔진을 사용
+        key     = override_key.upper().strip() if override_key else None
+        preset  = ENGINE_REGISTRY.get(key if key in ALLOWED_ENGINES else self._active_key,
                                       self.active_preset)
         tokens  = _TokenAccumulator()
         chunks: list[str] = []

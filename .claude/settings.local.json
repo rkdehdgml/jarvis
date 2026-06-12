@@ -50,7 +50,30 @@
       "Bash(jar tf *)",
       "Bash(pip show *)",
       "Bash(/tmp/_jarvis_venv_test/bin/python -m pip --version)",
-      "Bash(rm -rf /tmp/_jarvis_venv_test)"
+      "Bash(rm -rf /tmp/_jarvis_venv_test)",
+      "Bash(mvn -version)",
+      "Bash(python -c \"import google; print\\(google.__file__\\); print\\(google.__path__\\)\")",
+      "Bash(node --check renderer/renderer.js)",
+      "Bash(grep -o \"\\\\$\\('setting[a-zA-Z]*'\\)\" renderer/renderer.js)",
+      "Bash(netstat -ano)",
+      "Bash(.venv/bin/python -c \"import sys; print\\(sys.version\\)\")",
+      "Bash(.venv/bin/pip show *)",
+      "Bash(.venv/bin/python -m pip show pytest pytest-asyncio)",
+      "Bash(find / -maxdepth 6 -iname \"pytest\" -not -path \"/proc/*\")",
+      "Bash(apt list *)",
+      "Bash(/home/dhkang/.venvs/jarvis-test/bin/python -m pip list)",
+      "Bash(/home/dhkang/.venvs/jarvis-test/bin/pip list *)",
+      "Bash(/home/dhkang/.venvs/jarvis-test/bin/python --version)",
+      "Bash(/home/dhkang/.venvs/jarvis-test/bin/python -c \"import pydantic; print\\(pydantic.VERSION\\)\")",
+      "Bash(PYTHONPATH=. /home/dhkang/.venvs/jarvis-test/bin/python -m pytest --collect-only -q)",
+      "Bash(/home/dhkang/.venvs/jarvis-test/bin/python -m pytest --collect-only -q)",
+      "Bash(JARVIS_DATA_DIR=/tmp/jarvis_test_data /home/dhkang/.venvs/jarvis-test/bin/python *)",
+      "Bash(/home/dhkang/.venvs/jarvis-test/bin/python *)",
+      "Bash(claude --version)",
+      "Bash(sed -n '345,400p' app/services/llm_manager.py)",
+      "Bash(sed -n '460,530p' app/routers/chat.py)",
+      "Bash(.venv/bin/python -c \"from app.main import app\")",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }

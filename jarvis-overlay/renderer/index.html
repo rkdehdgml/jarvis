@@ -23,6 +23,15 @@
   <div class="os-bg" id="osBg"></div>
 
   <!-- ══════════════════════════════════════════════════
+       DYNAMIC OVERLAY BAR — WORKING 모드 전용
+       다른 모든 UI가 숨겨진 상태에서 우상단에만 떠 있는 슬림 바
+  ══════════════════════════════════════════════════ -->
+  <div class="overlay-bar hidden" id="overlayBar">
+    <span class="overlay-bar-orb"></span>
+    <span class="overlay-bar-text" id="overlayBarText">자비스 작업 준비 중...</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
        OS TOP BAR
   ══════════════════════════════════════════════════ -->
   <div class="os-topbar" id="osTopbar">
@@ -271,6 +280,24 @@
       </button>
       <button id="skipNgrokBtn" class="setup-btn setup-btn-secondary">
         나중에 설정하기
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       AI 엔진 설정 모달 (신호등 초록 버튼)
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="settingsModal">
+    <div class="modal-box settings-box">
+      <button class="modal-close-btn" id="settingsCloseBtn" title="닫기">×</button>
+      <div class="modal-logo">⬡</div>
+      <h1 class="modal-title">AI 엔진 설정</h1>
+      <p class="modal-subtitle">사용할 AI 엔진을 선택하세요 (Claude Code는 구독으로 동작 — API 키 불필요)</p>
+      <div class="modal-divider"></div>
+      <div class="settings-model-list" id="settingsModelList"></div>
+      <button id="settingsSaveBtn" class="setup-btn">
+        <span id="settingsSaveBtnText">저장</span>
+        <span id="settingsSaveBtnSpinner" class="spinner hidden"></span>
       </button>
     </div>
   </div>

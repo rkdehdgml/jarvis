@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('jarvis', {
   minimizeWindow:    ()       => ipcRenderer.send('minimize-window'),
   setIgnoreMouse:    (ignore) => ipcRenderer.send('set-ignore-mouse', ignore),
 
+  // ── Dynamic Overlay Bar (WORKING 모드) ──────────────────────────────────
+  enterOverlayBar:   ()       => ipcRenderer.send('enter-overlay-bar'),
+  exitOverlayBar:    ()       => ipcRenderer.send('exit-overlay-bar'),
+
   // ── 백엔드 URL 조회 ──────────────────────────────────────────────────────
   getBackendUrl:     ()       => ipcRenderer.invoke('get-backend-url'),
 

@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import subprocess
 import sys
 import time
 import webbrowser
@@ -36,14 +37,26 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
 
+from app.config import settings
+
 # ── 경로 ─────────────────────────────────────────────────────────────────────
 _PROMPTS_DIR    = Path(__file__).parent.parent.parent / "prompts"
 _SCREENSHOT_DIR = Path("./data/screenshots")
+_SCRIPTS_DIR    = Path(settings.os_scripts_dir)
 
 # ── 허용된 액션 타입 ──────────────────────────────────────────────────────────
 _VALID_TYPES = frozenset(
-    {"click", "write", "press", "hotkey", "wait", "screenshot", "scroll", "open_url"}
+    {"click", "write", "press", "hotkey", "wait", "screenshot", "scroll", "open_url", "run_script"}
 )
+
+# run_script 실행 제한 시간 기본값(초)
+_DEFAULT_SCRIPT_TIMEOUT = 120.0
+
+# ── 시각화용 딜레이 ───────────────────────────────────────────────────────────
+# 각 액션 사이에 두어 사람이 화면을 따라갈 수 있게 하는 의도적 지연(초)
+_ACTION_DELAY = 0.4
+# 글자 단위 타이핑 시 한 글자당 지연(초)
+_TYPE_CHAR_DELAY = 0.35
 
 # ── 위험 작업 패턴 (패턴, 사유) ────────────────────────────────────────────────
 _DANGEROUS_PATTERNS: list[tuple[str, str]] = [
@@ -71,6 +84,13 @@ _DANGEROUS_PATTERNS: list[tuple[str, str]] = [
     # 디스크 포맷
     (r"\b(format\s+[a-z]:?|diskpart|fdisk)\b",
      "디스크 포맷 또는 파티션 작업"),
+    # 시스템 종료/재부팅/절전
+    (r"\b(shutdown|reboot|재부팅|절전|시스템\s*종료)\b",
+     "시스템 종료/재부팅/절전 작업"),
+    # 이메일 전송
+    (r"(이메일|메일|email|gmail).{0,30}(전송|발송|보내|send)|"
+     r"(전송|발송|send).{0,30}(이메일|메일|email|gmail)",
+     "이메일 전송 작업"),
 ]
 
 
@@ -103,6 +123,7 @@ class ActionResult:
     duration_ms: float
     error: str              = ""
     screenshot_path: str    = ""    # screenshot 액션일 때만 설정
+    output: str             = ""    # run_script 액션의 stdout/stderr
 
     def to_ndjson(self, event: str) -> str:
         """NDJSON 한 줄 문자열로 직렬화."""
@@ -118,6 +139,8 @@ class ActionResult:
             d["error"] = self.error
         if self.screenshot_path:
             d["screenshot_path"] = self.screenshot_path
+        if self.output:
+            d["output"] = self.output
         return json.dumps(d, ensure_ascii=False)
 
 
@@ -167,6 +190,10 @@ def _make_log(action: OsAction) -> str:
         short = str(p)[:50] + ("..." if len(str(p)) > 50 else "")
         return f"자비스가 브라우저에서 '{short}'를 엽니다..."
 
+    if t == "run_script":
+        name = p.get("name", "script") if isinstance(p, dict) else "script"
+        return f"자비스가 '{name}.py' 스크립트를 작성하고 실행합니다..."
+
     return f"자비스가 [{t}] 액션을 실행합니다..."
 
 
@@ -184,6 +211,7 @@ def _sync_execute(action: OsAction) -> ActionResult:
     t, p = action.type, action.param
     t_start = time.perf_counter()
     screenshot_path = ""
+    output = ""
 
     try:
         # ── click ──────────────────────────────────────────────────────────
@@ -199,14 +227,18 @@ def _sync_execute(action: OsAction) -> ActionResult:
 
         # ── write ──────────────────────────────────────────────────────────
         elif t == "write":
+            # ASCII/한글 구분 없이 항상 클립보드 붙여넣기 사용.
+            # pyautogui.write()는 실제 키 스캔코드를 입력하므로 현재 OS의
+            # 한/영 IME 상태에 따라 ASCII 입력이 한글로 조합되는 등 오작동할
+            # 수 있다. 클립보드 붙여넣기(Ctrl+V)는 IME 조합을 거치지 않고
+            # 클립보드의 유니코드 텍스트를 그대로 입력하므로 IME 상태와
+            # 무관하게 항상 정확하다. 글자 단위로 붙여넣어 타이핑 효과는 유지한다.
+            import pyperclip
             text = str(p)
-            if any(ord(c) > 127 for c in text):
-                # 한국어/유니코드: 클립보드 붙여넣기
-                import pyperclip
-                pyperclip.copy(text)
+            for ch in text:
+                pyperclip.copy(ch)
                 pyautogui.hotkey("ctrl", "v")
-            else:
-                pyautogui.write(text, interval=0.04)
+                time.sleep(_TYPE_CHAR_DELAY)
 
         # ── press ──────────────────────────────────────────────────────────
         elif t == "press":
@@ -245,6 +277,32 @@ def _sync_execute(action: OsAction) -> ActionResult:
         elif t == "open_url":
             webbrowser.open(str(p))
 
+        # ── run_script ─────────────────────────────────────────────────────
+        elif t == "run_script":
+            if not isinstance(p, dict) or not p.get("code"):
+                raise ValueError("run_script에는 'code' 파라미터(Python 소스)가 필요합니다.")
+
+            name = re.sub(r"[^a-zA-Z0-9_\-]", "_", str(p.get("name") or "")).strip("_")
+            if not name:
+                name = f"script_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+
+            _SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
+            script_path = _SCRIPTS_DIR / f"{name}.py"
+            script_path.write_text(p["code"], encoding="utf-8")
+
+            timeout = float(p.get("timeout", _DEFAULT_SCRIPT_TIMEOUT))
+            proc = subprocess.run(
+                [sys.executable, str(script_path)],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                encoding="utf-8",
+                errors="replace",
+            )
+            output = (proc.stdout or "") + (proc.stderr or "")
+            if proc.returncode != 0:
+                raise RuntimeError(f"스크립트 실행 실패 (exit {proc.returncode}): {output[-1000:]}")
+
         else:
             raise ValueError(f"지원하지 않는 액션 타입: {t!r}")
 
@@ -258,6 +316,7 @@ def _sync_execute(action: OsAction) -> ActionResult:
             duration_ms    = duration,
             error          = str(e),
             screenshot_path= screenshot_path,
+            output         = output,
         )
 
     duration = (time.perf_counter() - t_start) * 1000
@@ -268,6 +327,7 @@ def _sync_execute(action: OsAction) -> ActionResult:
         log            = _make_log(action),
         duration_ms    = duration,
         screenshot_path= screenshot_path,
+        output         = output,
     )
 
 
@@ -357,6 +417,36 @@ _parser = _PlanParser()
 # 5. OS Agent 클래스
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _resolve_screen_size() -> tuple[int, int]:
+    """화면 해상도. 설정값이 있으면 사용, 없으면 pyautogui로 감지, 실패 시 1920x1080."""
+    if settings.os_screen_width and settings.os_screen_height:
+        return settings.os_screen_width, settings.os_screen_height
+    try:
+        import pyautogui
+        return pyautogui.size()
+    except Exception:
+        return 1920, 1080
+
+
+def _render_env_info(system: str) -> str:
+    """프롬프트 내 실행 환경 placeholder를 실제 설정값으로 치환."""
+    from app.config import resolved_chrome_user_data_dir, resolved_downloads_dir
+
+    width, height = _resolve_screen_size()
+    replacements = {
+        "{{SCREEN_WIDTH}}":          str(width),
+        "{{SCREEN_HEIGHT}}":         str(height),
+        "{{CHROME_USER_DATA_DIR}}":  resolved_chrome_user_data_dir(),
+        "{{CAPTURES_DIR}}":          str(Path(settings.os_captures_dir).resolve()),
+        "{{DOWNLOADS_DIR}}":         resolved_downloads_dir(),
+        "{{SCRIPTS_DIR}}":           str(Path(settings.os_scripts_dir).resolve()),
+        "{{PYTHON_EXECUTABLE}}":     sys.executable,
+    }
+    for placeholder, value in replacements.items():
+        system = system.replace(placeholder, value)
+    return system
+
+
 class OsAgent:
     """LLM 계획 생성 → pyautogui 실행 → NDJSON 스트리밍 로그."""
 
@@ -371,7 +461,7 @@ class OsAgent:
         if not system_path.exists():
             raise FileNotFoundError(f"OS 에이전트 프롬프트 없음: {system_path}")
 
-        system = system_path.read_text(encoding="utf-8")
+        system = _render_env_info(system_path.read_text(encoding="utf-8"))
 
         # agent_router를 우회하고 OS Agent 전용 시스템 프롬프트를 직접 주입
         routing = RoutingResult(
@@ -421,6 +511,10 @@ class OsAgent:
         fail_count    = 0
 
         for action in plan.actions:
+            # ── 의도적 지연 — 동작 사이에 사람이 화면을 따라갈 시간을 준다 ──
+            if action.index > 0:
+                await asyncio.sleep(_ACTION_DELAY)
+
             # ── start 이벤트 ──
             yield json.dumps({
                 "event":       "start",

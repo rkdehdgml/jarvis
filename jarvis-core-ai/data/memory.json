@@ -119,6 +119,144 @@
       "user": "안녕",
       "assistant": "안녕하세요,Sir. 어떻게 도와드릴까요? 오늘 어떤 부분이 마음에 들지 않나요?\u0000{\"engine\": \"OLLAMA_QWEN\", \"model\": \"qwen2.5:7b\", \"agent\": \"life_coach\", \"tokens\": 805, \"p_tokens\": 779, \"c_tokens\": 26}",
       "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-10T17:50:38",
+      "user": "안녕",
+      "assistant": "\n[자비스 오류] 응답 생성 중 오류 발생: cannot import name 'genai' from 'google' (unknown location)",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-10T17:59:06",
+      "user": "안녕",
+      "assistant": "\n[자비스 오류] 응답 생성 중 오류 발생: cannot import name 'genai' from 'google' (unknown location)",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-10T18:00:28",
+      "user": "안녕",
+      "assistant": "\n[자비스 오류] 응답 생성 중 오류 발생: cannot import name 'genai' from 'google' (unknown location)",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T10:06:00",
+      "user": "안녕?",
+      "assistant": "\n[자비스 오류] 응답 생성 중 오류 발생: cannot import name 'genai' from 'google' (unknown location)",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T10:15:06",
+      "user": "안녕?",
+      "assistant": "안녕하세요, Sir.\n\n무엇을 도와드릴까요? 제가 경청할 준비가 되어 있습니다.\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 851, \"p_tokens\": 830, \"c_tokens\": 21}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T10:15:36",
+      "user": "크롬 켜서 네이버에 대전 날씨 검색해줘",
+      "assistant": "```json\n{\n  \"thought\": \"Sir께서 크롬을 열어 네이버에서 '대전 날씨'를 검색하라고 요청하셨습니다. `open_url` 액션을 사용하여 크롬을 열고 네이버 검색 페이지로 직접 이동하는 것이 가장 효율적입니다.\",\n  \"actions\": [\n    { \"type\": \"open_url\", \"param\": \"https://search.naver.com/search.naver?query=%EB%8C%80%EC%A0%84+%EB%82%A0%EC%94%A8\" },\n    { \"type\": \"wait\", \"param\": 2.5 },\n    { \"type\": \"screenshot\", \"param\": null }\n  ]\n}\n```\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"os_agent\", \"tokens\": 1824, \"p_tokens\": 1660, \"c_tokens\": 164}",
+      "agent": "os_agent"
+    },
+    {
+      "ts": "2026-06-11T10:19:10",
+      "user": "안녕?",
+      "assistant": "안녕하십니까, Sir.\n\n무슨 일이든 편히 말씀해주십시오. 제가 경청하고 있습니다.\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 864, \"p_tokens\": 843, \"c_tokens\": 21}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T10:19:35",
+      "user": "크롬 켜서 네이버에서 대전 날씨 검색해줘",
+      "assistant": "```json\n{\n  \"thought\": \"Sir께서 Chrome을 열고 Naver에서 '대전 날씨'를 검색하라고 요청하셨습니다. `open_url` 액션을 사용하여 Chrome을 실행하고 Naver 검색 페이지로 직접 이동하는 것이 가장 효율적인 방법입니다. 이후 스크린샷을 찍어 결과를 확인합니다.\",\n  \"actions\": [\n    { \"type\": \"open_url\", \"param\": \"https://search.naver.com/search.naver?query=%EB%8C%80%EC%A0%84+%EB%82%A0%EC%94%A8\" },\n    { \"type\": \"wait\", \"param\": 2.5 },\n    { \"type\": \"screenshot\", \"param\": null }\n  ]\n}\n```\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"os_agent\", \"tokens\": 1850, \"p_tokens\": 1673, \"c_tokens\": 177}",
+      "agent": "os_agent"
+    },
+    {
+      "ts": "2026-06-11T10:25:43",
+      "user": "안녕?",
+      "assistant": "\n[JARVIS 오류] Gemini 호출 실패: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 0, \"p_tokens\": 0, \"c_tokens\": 0}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T10:26:39",
+      "user": "안녕?",
+      "assistant": "안녕하세요, Sir.\n\n무엇을 도와드릴까요? 편안하게 말씀해주십시오.\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 927, \"p_tokens\": 908, \"c_tokens\": 19}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T10:42:38",
+      "user": "안녕?",
+      "assistant": "\n[JARVIS 오류] Gemini 호출 실패: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 0, \"p_tokens\": 0, \"c_tokens\": 0}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T10:43:04",
+      "user": "안녕?",
+      "assistant": "안녕하세요, Sir. 무슨 일이 있으신가요? 편안하게 말씀해주십시오. 제가 경청하겠습니다.\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 918, \"p_tokens\": 895, \"c_tokens\": 23}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T11:02:27",
+      "user": "안녕?",
+      "assistant": "\n[JARVIS 오류] Gemini 호출 실패: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 0, \"p_tokens\": 0, \"c_tokens\": 0}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T11:02:46",
+      "user": "크롬켜서 네이버에 대전날씨 검색해줘",
+      "assistant": "\n[JARVIS 오류] Gemini API 요청 한도를 초과했습니다. 잠시 후 재시도하세요.\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 0, \"p_tokens\": 0, \"c_tokens\": 0}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T14:12:10",
+      "user": "크롬켜서 네이버에 대전날씨 검색해줘",
+      "assistant": "\n[JARVIS 오류] Gemini API 요청 한도를 초과했습니다. 잠시 후 재시도하세요.\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 0, \"p_tokens\": 0, \"c_tokens\": 0}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T14:37:58",
+      "user": "안녕",
+      "assistant": "안녕하세요, Sir. 제가 경청할 준비가 되어 있습니다. 편안하게 말씀해주십시오.\u0000{\"engine\": \"GEMINI_FLASH\", \"model\": \"gemini-2.5-flash\", \"agent\": \"life_coach\", \"tokens\": 873, \"p_tokens\": 853, \"c_tokens\": 20}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T15:12:19",
+      "user": "안녕",
+      "assistant": "안녕하세요, 선생님. 오늘은 어떻게 지내셨는지요? *_어떤 기분으로 하루를 시작하셨습니까?_*\u0000{\"engine\": \"GROQ_LLAMA_70B\", \"model\": \"llama-3.3-70b-versatile\", \"agent\": \"life_coach\", \"tokens\": 890, \"p_tokens\": 858, \"c_tokens\": 32}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-11T16:24:52",
+      "user": "안녕",
+      "assistant": "안녕하십니까, 선생님. 오늘은 어떻게 지내셨습니까? *_어느 정도 기분이 좋으신가요?_*\u0000{\"engine\": \"GROQ_LLAMA_70B\", \"model\": \"llama-3.3-70b-versatile\", \"agent\": \"life_coach\", \"tokens\": 877, \"p_tokens\": 845, \"c_tokens\": 32}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-12T13:41:24",
+      "user": "안녕",
+      "assistant": "안녕하세요, 선생님. 오늘 하루는 어땠습니까? *_어떤 일이 있었는지 잠시 들어보겠습니다._*\u0000{\"engine\": \"GROQ_LLAMA_70B\", \"model\": \"llama-3.3-70b-versatile\", \"agent\": \"life_coach\", \"tokens\": 863, \"p_tokens\": 832, \"c_tokens\": 31}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-12T13:41:45",
+      "user": "너 무슨 모델이야?",
+      "assistant": "선생님, 저는 J.A.R.V.I.S.의 Life Coach submodule입니다. 즉, 저는 사용자의生活과 마음속을 이해하고 지원하는 역할을 하는 것이죠. *_선생님의 현재 상태나 고민에 대해 말해주신다면, 저가 더 정확하게 도와드릴 수 있을 것 같습니다._*\u0000{\"engine\": \"GROQ_LLAMA_70B\", \"model\": \"llama-3.3-70b-versatile\", \"agent\": \"life_coach\", \"tokens\": 950, \"p_tokens\": 877, \"c_tokens\": 73}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-12T13:44:22",
+      "user": "너 클로드 코드기반으로 되어 있어?",
+      "assistant": "그렇습니다, 선생님. 저는 클라우드 컴퓨팅 기반의 인공지능 모델로 개발되었습니다. *_클라우드 기반으로 운영되는 만큼, 저는 대량의 데이터를 처리하고, 지속적으로 학습하고, 업데이트되는 새로운 기술을 반영할 수 있습니다._* 이는 저에게 사용자와의 대화에서 더 많은靈活性과 맞춤형 지원을 제공할 수 있는 기반을 마련해주는데요. *_클라우드 기반의 장점이 실제 사용자와의 대화에서 어떻게 반영되는지 궁금하신가요?_*\u0000{\"engine\": \"GROQ_LLAMA_70B\", \"model\": \"llama-3.3-70b-versatile\", \"agent\": \"life_coach\", \"tokens\": 1107, \"p_tokens\": 971, \"c_tokens\": 136}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-12T14:38:56",
+      "user": "안녕?",
+      "assistant": "안녕하세요, Sir. 오늘 하루는 어떠셨나요?\u0000{\"engine\": \"CLAUDE_CODE\", \"model\": \"claude-code\", \"agent\": \"life_coach\", \"tokens\": 80, \"p_tokens\": 3, \"c_tokens\": 77, \"status\": \"ok\", \"cost_usd\": 0.061295999999999996, \"num_turns\": 1, \"session_id\": \"288b6a27-edf0-462b-b86a-de9583c11b3a\"}",
+      "agent": "life_coach"
+    },
+    {
+      "ts": "2026-06-12T15:03:01",
+      "user": "괜찮아 진행해줘",
+      "assistant": "파일 구조를 직접 읽어서 파악하겠습니다.좀 더 넓게 탐색해보겠습니다.실제 프로젝트 경로를 좀 더 정확히 탐색하겠습니다.\n\n```json\n{\n  \"thought\": \"jarvis-core 앱의 실제 설치 경로와 서버 구조를 파악합니다.\",\n  \"actions\": [\n    { \"type\": \"run_script\", \"param\": {\n        \"name\": \"find_project_and_restart\",\n        \"code\": \"import os, subprocess, json, time\\n\\n# 가능한 설치 경로 후보들\\ncandidates = [\\n    r'C:\\\\Users\\\\CEO\\\\AppData\\\\Roaming\\\\jarvis-core',\\n    r'C:\\\\Users\\\\CEO\\\\AppData\\\\Local\\\\Programs\\\\jarvis-core',\\n    r'C:\\\\Users\\\\CEO\\\\AppData\\\\Local\\\\jarvis-core',\\n    r'C:\\\\Users\\\\CEO\\\\Desktop\\\\jarvis-core',\\n    r'C:\\\\jarvis-core',\\n    r'C:\\\\Projects\\\\jarvis-core',\\n]\\n\\nprint('=== Searching for jarvis-core project ===')\\nfor path in candidates:\\n    if os.path.exists(path):\\n        print(f'[FOUND] {path}')\\n        for item in os.listdir(path):\\n            print(f'",
+      "agent": "life_coach"
     }
   ]
 }

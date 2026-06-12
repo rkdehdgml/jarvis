@@ -21,6 +21,7 @@ import base64
 import io
 import json
 import time
+from urllib.parse import quote
 
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
@@ -120,7 +121,7 @@ async def run_command(
     return StreamingResponse(
         generate(),
         media_type = "application/x-ndjson; charset=utf-8",
-        headers    = {"X-OS-Command": req.command[:80]},
+        headers    = {"X-OS-Command": quote(req.command[:80])},
     )
 
 

@@ -250,8 +250,10 @@ function createWindow() {
     // OS 수준 전체화면 — Windows 작업표시줄까지 완전히 가림
     fullscreen:      true,
     frame:           false,
-    transparent:     false,
-    backgroundColor: '#020b18',   // .os-bg 와 동일 — 로딩 깜빡임 방지
+    // transparent:true — WORKING 모드에서 'Dynamic Overlay Bar'로 축소될 때
+    // 창 바깥 영역이 실제 데스크탑(Chrome 등)으로 비치도록 함.
+    // 평상시(IDLE 등)에는 .os-bg가 불투명 배경을 그려 동일하게 보인다.
+    transparent:     true,
     hasShadow:       false,
     skipTaskbar:     false,
     webPreferences: {
@@ -268,12 +270,45 @@ function createWindow() {
   }
 }
 
+// ── Dynamic Overlay Bar — WORKING 모드 진입/복귀 ────────────────────────────
+// 화면 우상단의 슬림한 바 크기로 창을 축소하고 클릭을 통과시켜,
+// 자비스가 PC를 조작하는 동안 대상 화면(브라우저 등)을 100% 노출한다.
+const OVERLAY_BAR_WIDTH  = 380
+const OVERLAY_BAR_HEIGHT = 44
+const OVERLAY_BAR_MARGIN = 12
+
+function enterOverlayBar() {
+  if (!win) return
+  const { width: sw } = screen.getPrimaryDisplay().workAreaSize
+  win.setFullScreen(false)
+  win.setBounds({
+    x:      sw - OVERLAY_BAR_WIDTH - OVERLAY_BAR_MARGIN,
+    y:      OVERLAY_BAR_MARGIN,
+    width:  OVERLAY_BAR_WIDTH,
+    height: OVERLAY_BAR_HEIGHT,
+  })
+  win.setAlwaysOnTop(true, 'screen-saver')
+  // 바 영역도 클릭 통과 — 대상 화면을 가리지 않고 상태만 표시
+  win.setIgnoreMouseEvents(true, { forward: true })
+}
+
+function exitOverlayBar() {
+  if (!win) return
+  win.setIgnoreMouseEvents(false)
+  win.setAlwaysOnTop(false)
+  win.setFullScreen(true)
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // 7. IPC 핸들러
 // ══════════════════════════════════════════════════════════════════════════════
 
 // 창 상태 전환 — 전체화면 OS 모드에서는 크기 변경 없음
 ipcMain.on('set-window-state', () => { /* no-op: full-screen OS mode */ })
+
+// Dynamic Overlay Bar — WORKING 상태 진입/복귀
+ipcMain.on('enter-overlay-bar', () => enterOverlayBar())
+ipcMain.on('exit-overlay-bar',  () => exitOverlayBar())
 
 // 창 컨트롤
 ipcMain.on('close-window',    () => win?.close())

@@ -345,11 +345,13 @@ class _LlmClassifier:
                         full_response.append(text)
 
             elif settings.ai_provider == "gemini":
+                if not settings.gemini_api_key:
+                    return None   # 키 미설정 — ADC 폴백으로 인한 행(hang) 방지
                 from google import genai
                 from google.genai import types
                 client = genai.Client(api_key=settings.gemini_api_key)
                 stream = await client.aio.models.generate_content_stream(
-                    model    = settings.gemini_model,
+                    model    = settings.gemini_classifier_model,
                     contents = [types.Content(role="user", parts=[types.Part.from_text(text=user_text)])],
                     config   = types.GenerateContentConfig(system_instruction=system, max_output_tokens=256),
                 )
@@ -446,11 +448,14 @@ def _build_prompt_set(
     system_prompt = load_agent_prompt(routing.agent_key)
     system_prompt += (
         "\n\n## Language (IMPORTANT)\n"
-        "Respond ONLY in Korean (한국어). Every single word of your reply must be "
-        "Korean — do not mix in English, Chinese, Japanese, Vietnamese, French, or "
-        "any other language, even for single words or phrases. "
-        "If you don't know a Korean term, use a natural Korean approximation or "
-        "transliteration instead of switching languages. "
+        "Respond ONLY in Korean (한국어), written exclusively in the Hangul "
+        "script (한글). Every single word of your reply must be Korean — do "
+        "not mix in English, Chinese, Japanese, Vietnamese, French, or any "
+        "other language, even for single words or phrases. "
+        "Never use Chinese characters/Hanja (漢字, CJK ideographs) — for "
+        "example write '유연성' (NOT '靈活性'), '효율성' (NOT '效率性'). "
+        "If you don't know a Korean term, use a natural Korean approximation "
+        "or transliteration in Hangul instead of switching scripts. "
         "Only use another language if the user explicitly asks you to."
     )
 
